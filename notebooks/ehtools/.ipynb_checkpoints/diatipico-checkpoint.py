@@ -113,3 +113,19 @@ def calculate_DtaTn(Delta):
     return tmp2
 
 
+
+def calculate_dt(df):
+    """
+    Agrega una columna 'Delta_t' al DataFrame donde se calcula el intervalo de tiempo
+    entre elementos consecutivos del índice en segundos.
+    """
+    
+    # Calcular la diferencia de tiempo entre índices consecutivos
+    delta_t = df.index.to_series().diff().dt.total_seconds()
+    
+    # Agregar la columna 'Delta_t' al DataFrame
+    df['dt'] = delta_t
+    df.dt = df.dt.bfill()
+    return df
+
+
