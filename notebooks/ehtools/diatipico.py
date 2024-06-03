@@ -71,7 +71,7 @@ def calculate_tTmaxTminTmax(f_epw,mes,epw):
 
 
 
-def add_IgIbId_Tn(f_epw,dia,epw,mes,f1,f2,timezone):
+def add_IgIbId_Tn(dia,epw,mes,f1,f2,timezone):
     # epw = read_epw(f_epw,alias=True,year='2024')
     epw_mes = epw.loc[epw.index.month==int(mes)]
     Irr = epw_mes.groupby(by=epw_mes.index.hour)[['Ig','Id','Ib']].mean()
