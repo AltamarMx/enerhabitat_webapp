@@ -60,10 +60,10 @@ def calculate_tTmaxTminTmax(mes,epw):
     hora = hora_minutos.dt.hour
     minuto = hora_minutos.dt.minute
     tTmax = hora.mean() +  minuto.mean()/60 
-    epw_mes = epw.loc[epw.index.month==int(mes)]
-    horas  = epw_mes.resample('D').To.idxmax().resample('ME').mean().dt.hour 
-    minutos = epw_mes.resample('D').To.idxmax().resample('ME').mean().dt.minute
-    tTmax = horas.iloc[0]+ minutos.iloc[0]/60 
+    # epw_mes = epw.loc[epw.index.month==int(mes)]
+    # horas  = epw_mes.resample('D').To.idxmax().resample('ME').mean().dt.hour 
+    # minutos = epw_mes.resample('D').To.idxmax().resample('ME').mean().dt.minute
+    # tTmax = horas.iloc[0]+ minutos.iloc[0]/60 
     Tmin =  epw_mes.resample('D').To.min().resample('ME').mean().iloc[0]
     Tmax =  epw_mes.resample('D').To.max().resample('ME').mean().iloc[0]
     
