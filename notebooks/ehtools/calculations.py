@@ -1,4 +1,8 @@
 import numpy as np
+from numba import njit
+from scipy.linalg import solve_banded
+
+
 
 def set_construction(propiedades,tuplas):
     """
@@ -168,3 +172,79 @@ def solve_PQ(a, b, c, d, T, nx, Tint, hi, La, dt):
     Tint += hi * dt / (rhoair * cair * La) * (T[nx - 1] - Tinn)
 
     return T, Tint
+
+@njit
+def calculate_coefficients_numba(dt, dx, k, nx, rhoc, T, To, ho, Ti, hi):
+    """
+    Calcula los coeficientes a, b, c y d para el sistema de ecuaciones.
+
+    Se utiliza un enfoque basado en bucles para garantizar compatibilidad con Numba.
+    """
+    a = np.empty(nx,dtype=np.float64)
+    b = np.empty(nx,dtype=np.float64)
+    c = np.empty(nx,dtype=np.float64)
+    d = np.empty(nx,dtype=np.float64)
+    
+    # Primer nodo (índice 0)
+    b[0] = (2.0 * k[0] * k[1]) / (k[0] + k[1]) / dx
+    c[0] = 0.0
+    d[0] = rhoc[0] * (dx / dt) * T[0] + ho * To
+    a[0] = rhoc[0] * (dx / dt) + ho + b[0]
+    
+    # Nodos intermedios (índices 1 a nx-2)
+    if nx > 2:
+        for i in range(1, nx - 1):
+            b[i] = (2.0 * k[i] * k[i + 1]) / (k[i] + k[i + 1]) / dx
+            c[i] = (2.0 * k[i - 1] * k[i]) / (k[i - 1] + k[i]) / dx
+            d[i] = rhoc[i] * (dx / dt) * T[i]
+            a[i] = rhoc[i] * (dx / dt) + b[i] + c[i]
+    
+    # Último nodo (índice nx-1)
+    i = nx - 1
+    b[i] = 0.0
+    c[i] = (2.0 * k[i - 1] * k[i]) / (k[i - 1] + k[i]) / dx
+    d[i] = rhoc[i] * (dx / dt) * T[i] + hi * Ti
+    a[i] = rhoc[i] * (dx / dt) + c[i] + hi
+
+    return a, b, c, d
+
+@njit
+def solve_PQ_numba(a, b, c, d, T, nx, Tint, hi, La, dt):
+    """
+    Resuelve el sistema de ecuaciones usando el método TDMA (eliminación hacia adelante y sustitución hacia atrás)
+    y actualiza la temperatura interna.
+
+    Se optimiza evitando cálculos repetidos y usando bucles compatibles con Numba.
+    """
+    rhoair = 1.1797660470258469
+    cair   = 1005.458757
+
+    P = np.empty(nx)
+    Q = np.empty(nx)
+    Tn = np.empty(nx)
+    
+    # Inicialización en el nodo 0
+    denom = a[0]
+    P[0] = b[0] / denom
+    Q[0] = d[0] / denom
+
+    # Eliminación hacia adelante
+    for i in range(1, nx):
+        denom = a[i] - c[i] * P[i - 1]
+        P[i] = b[i] / denom
+        Q[i] = (d[i] + c[i] * Q[i - 1]) / denom
+
+    # Sustitución hacia atrás
+    Tn[nx - 1] = Q[nx - 1]
+    for i in range(nx - 2, -1, -1):
+        Tn[i] = P[i] * Tn[i + 1] + Q[i]
+
+    # Actualizamos el arreglo T elemento a elemento
+    for i in range(nx):
+        T[i] = Tn[i]
+    
+    Tint_prev = Tint
+    Tint = Tint + hi * dt / (rhoair * cair * La) * (T[nx - 1] - Tint_prev)
+    return T, Tint
+
+
