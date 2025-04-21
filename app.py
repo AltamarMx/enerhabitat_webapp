@@ -33,9 +33,9 @@ materiales = {
 }
 
 # Función para generar UI de cada capa
-def capa_ui(id_capa, numero_capa):
+def capa_ui(id_capa):
     return ui.accordion_panel(
-        f"Capa {numero_capa}",  # Título visible
+        f"Capa {id_capa}",  # Título visible
         # El ID se maneja automáticamente, no lo especificamos aquí
         ui.input_select(
             f"material_{id_capa}", 
@@ -86,17 +86,24 @@ def capa_ui(id_capa, numero_capa):
         )
     )
 
-app_ui = ui.page_sidebar(
-    ui.sidebar(
-        ui.h4("Parámetros geométricos"),
+def crearCapas(numero_capas):
+    aux=capa_ui(1)
+    for i in range(numero_capas):
+        aux=aux,capa_ui(i)
+    return aux
+        
+# Función para generar UI de un SC 
+def sc_ui(numero_sc):
+    return ui.nav_panel(f"SC {numero_sc}",
+    ui.h4("Parámetros geométricos"),
         ui.input_slider(
-            "orientacion", 
+            f"orientacion_{numero_sc}", 
             "Orientación (Norte=0°, Sur=180°)", 
             -180, 180, 0,
             post="°"
         ),  
         ui.input_slider(
-            "inclinacion", 
+            f"inclinacion_{numero_sc}", 
             "Inclinación (Techo=0°, Muro=90°)", 
             0, 180, 90,
             post="°"
@@ -104,32 +111,51 @@ app_ui = ui.page_sidebar(
         
         ui.hr(),
         ui.h4("Datos climáticos"),
-        ui.input_file("epw", "Archivo EPW",accept=[".epw"], multiple=False),
+        ui.input_file(f"epw_{numero_sc}", "Archivo EPW",accept=[".epw"], multiple=False),
         ui.input_select(
-            "mes", 
+            f"mes_{numero_sc}", 
             "Mes:",
             meses
         ),
         ui.hr,
         ui.h4("Sistema constructivo"),
         ui.input_numeric(
-            "num_capas", 
+            f"num_capas_{numero_sc}", 
             "Número de capas:", 
             1, 
             min=1, 
             max=10
         ),
         
+        
+        
+    )
+
+"""ui.input_action_button(
+            f"agregar_capa_{numero_sc}", 
+            "Agregar capa"
+        ),
         ui.accordion(
-            id="acordion_capas",  # ID del acordeón principal aquí
+            crearCapas(f"{input.agregar_capa_1()}"),
+            id=f"acordion_capas_{numero_sc}",  # ID del acordeón principal aquí
             # Paneles se agregarán dinámicamente
             open=False,
             multiple=False
-        ),
-        
-        ui.input_action_button(
-            "agregar_capa", 
-            "Agregar capa"
+        ),"""
+
+
+def crearSC(numero_sc):
+    aux=sc_ui(1)
+    for i in range(1,numero_sc):
+        aux=aux,sc_ui(i+1)
+    return aux    
+    
+app_ui = ui.page_sidebar(
+    ui.sidebar(
+        ui.navset_card_tab(
+            crearSC(1),
+            id="sistemas_constructivos",
+            open=""           
         ),
         width=350,
         position="right",
@@ -140,9 +166,9 @@ app_ui = ui.page_sidebar(
 )
 
 def server(input, output, session):
-    @reactive.event(input.agergar_capa)
+    @reactive.event(input.agergar_capa_1)
     def agrega():
-        return f"{input.agregar_capa}"
+        return f"{input.agregar_capa_1()}"
         
     @output
     @render_widget
@@ -188,5 +214,6 @@ def server(input, output, session):
         )
         return fig
     
+    pass
 
 app = App(app_ui, server)
