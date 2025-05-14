@@ -1,0 +1,57 @@
+from shiny import ui
+import enerhabitat as eh
+
+meses = {
+    "01": "Enero",
+    "02": "Febrero",
+    "03": "Marzo",
+    "04": "Abril",
+    "05": "Mayo",
+    "06": "Junio",
+    "07": "Julio",
+    "08": "Agosto",
+    "09": "Septiembre",
+    "10": "Octubre",
+    "11": "Noviembre",
+    "12": "Diciembre",
+}
+
+tilt = {"90": "Muro", "0": "Techo"}
+
+azimuth = {
+    "0":"Norte",
+    "45":"Noroeste",
+    "90":"Oeste",
+    "135":"Suroeste",
+    "180":"Sur",
+    "225":"Sureste",
+    "270":"Este",
+    "315":"Noreste",
+}
+
+materiales = eh.get_list_materials()
+
+
+def panel_card(num):
+    return ui.nav_panel(
+        f"SC {num}",
+        ui.h4("Datos climáticos"),
+        ui.input_file("epw_file", "Archivo EPW", accept=[".epw"], multiple=False),
+        ui.input_select("mes", "Mes:", meses, selected="Enero"),
+        ui.hr(),
+        ui.h4("Parámetros geométricos"),
+        ui.input_select("tilt", "Inclinación:", tilt),
+        ui.input_select("azimuth", "Orientación:", azimuth),
+        ui.hr(),
+        ui.h4("Sistema constructivo"),
+    )
+
+
+"""        
+        
+        
+        
+        
+        
+        
+        """
