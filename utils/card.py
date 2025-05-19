@@ -52,13 +52,12 @@ def panel_card(num):
         ui.output_ui("ui_upload"),
         ui.input_select("mes", "Mes:", meses, selected="Enero",),
         ui.hr(),
-        ui.h4("Parámetros geométricos"),
+        ui.h4("Datos geométricos"),
         ui.input_select("tilt", "Inclinación:", tilt),
         ui.input_select("azimuth", "Orientación:", azimuth),
         ui.hr(),
         ui.h4("Sistema constructivo"),
-        ui.input_select('material_capa_1', "Material:",materiales),
-        ui.input_numeric("ancho_capa_1", "Ancho (mm):",value=0.01,step=0.01,min=0.01),
-        ui.input_numeric("absortancia", "Absortancia:",value=0.8,min=0, max=1)
+        ui.output_ui("ui_capas"),
+               
     )
 

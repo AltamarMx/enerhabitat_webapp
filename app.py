@@ -5,7 +5,7 @@ import os
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget  
 
-from utils.card import panel_card,PRECARGADOS_DIR
+from utils.card import panel_card,PRECARGADOS_DIR,materiales
 
 app_ui = ui.page_sidebar(
     ui.sidebar(
@@ -29,9 +29,11 @@ app_ui = ui.page_sidebar(
     )
 )
 
-
 def server(input, output, session):
     current_file = reactive.Value(None)
+    
+    # Lista para mantener el registro de capas existentes
+    capas_activas = reactive.Value([1])  # Comienza con la capa 1
     
     @reactive.Calc
     def solucion():
@@ -44,16 +46,17 @@ def server(input, output, session):
             )
         
         sc = sistemaConstructivo()
-        
         sol_data = eh.solveCS(sc, sol_data)
-        
         return sol_data
     
     @reactive.Calc
     def sistemaConstructivo():
-        return [(input.ancho_capa_1(), input.material_capa_1())]
-        
-        
+        return [
+            (input[f"ancho_capa_{i}"](), input[f"material_capa_{i}"]())
+            for i in capas_activas()
+        ]    
+    
+    # Manejo de EPW's    
     @reactive.Effect
     def _():
         # Manejar selección de archivo precargado
@@ -68,14 +71,57 @@ def server(input, output, session):
         if input.selector_archivo() == "upload" and input.epw_file() is not None:
             file_info = input.epw_file()[0]
             current_file.set(file_info["datapath"])
-            
+    
+    # Agregar capa        
+    @reactive.Effect
+    @reactive.event(input.add_capa)
+    def _():
+        nueva_capa = max(capas_activas()) + 1
+        capas_activas.set(capas_activas() + [nueva_capa])
+    
+    # Eliminar capa
+    @reactive.Effect
+    def _():
+        for i in capas_activas():
+            btn_id = f"remove_capa_{i}"
+            if btn_id in input and input[btn_id]() > 0:
+                if len(capas_activas()) > 1:
+                    # Crear nueva lista sin la capa eliminada
+                    nuevas_capas = [c for c in capas_activas() if c != i]
+                    capas_activas.set(nuevas_capas)
+                break
+           
     @output
     @render.ui
     def ui_upload():
+        # ui para subir archivo
         if input.selector_archivo() == "upload":
             return ui.input_file("epw_file",label='', accept=[".epw"], multiple=False)
         return None
     
+    @output
+    @render.ui
+    def ui_capas():
+        panels = []
+        for i in capas_activas():
+            panels.append(
+                ui.accordion_panel(
+                    f"Capa {i}",
+                    ui.input_select(f'material_capa_{i}', "Material:", materiales),
+                    ui.input_numeric(f"ancho_capa_{i}", "Ancho (mm):", value=0.1, step=0.01, min=0.01),
+                    ui.input_numeric("absortancia", "Absortancia:",value=0.8,min=0, max=1) if i==1 else None,
+                    ui.input_action_button(f"remove_capa_{i}", "Eliminar capa", class_="btn-light",width="100%") if len(capas_activas()) > 1 and i!=1 else None,
+                    ui.input_action_button("add_capa", "Agregar capa", class_="btn-primary",width="100%") if i == len(capas_activas()) else None,
+                )
+            )
+        
+        return ui.accordion(
+            *panels,
+            id="capas_accordion",
+            open=f"Capa {max(capas_activas()) if capas_activas() else '1'}",  # Abre la última capa
+            multiple=False
+        )
+        
     @render.data_frame  
     def sol_df():
         sol_data = solucion()
@@ -91,7 +137,6 @@ def server(input, output, session):
             y=["Ta","Tsa","Ti"]
         )
         return solucion_plot
-
 
 app = App(app_ui, server)
 
