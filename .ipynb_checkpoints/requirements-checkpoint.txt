@@ -1,6 +1,0 @@
-pandas
-matplotlib
-plotly
-shiny
-fastparquet
-numpy
