@@ -225,7 +225,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "enerhabitat", specifier = ">=0.2.1", index = "https://test.pypi.org/simple/" },
+    { name = "enerhabitat", specifier = ">=0.2.2", index = "https://test.pypi.org/simple/" },
     { name = "plotly", specifier = ">=6.0.1" },
     { name = "shiny", specifier = ">=1.3.0" },
     { name = "shinywidgets", specifier = ">=0.5.2" },
@@ -233,16 +233,16 @@ requires-dist = [
 
 [[package]]
 name = "enerhabitat"
-version = "0.2.1"
+version = "0.2.2"
 source = { registry = "https://test.pypi.org/simple/" }
 dependencies = [
     { name = "numba", version = "0.60.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numba", version = "0.61.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "pvlib" },
 ]
-sdist = { url = "https://test-files.pythonhosted.org/packages/bc/45/6a9206ae357ea393797c5649140de01c7b304e161bacbca14eabc09f6f0c/enerhabitat-0.2.1.tar.gz", hash = "sha256:45abff4b84fa6e1bf7f2a7ca7a2780ff18bfcdd8458fee6555b4e5e07b316ddd", size = 49057 }
+sdist = { url = "https://test-files.pythonhosted.org/packages/34/64/59a979bdb10a4fde9d6a1061b0bf0f989befc75277cbffbfb7986d793611/enerhabitat-0.2.2.tar.gz", hash = "sha256:78984da716d7031a501a76218113980dcf56cf811884b7f252739b0605c9c846", size = 49045 }
 wheels = [
-    { url = "https://test-files.pythonhosted.org/packages/ba/13/5b474d8faaa072a52153d554cb686ad05c489aeecfe21d3abb988454981d/enerhabitat-0.2.1-py3-none-any.whl", hash = "sha256:468d3df9fe6d9fe413483bb116218092e25779da90dc10d674a80db016001bdb", size = 10202 },
+    { url = "https://test-files.pythonhosted.org/packages/23/20/c32a05b3edb10f9c440064d560e257857974d1259618e06cd512c1fc2a0c/enerhabitat-0.2.2-py3-none-any.whl", hash = "sha256:7ef37428a88fda0bc3fa456875a27d7a7bdfe898698299fe237e22d439caf995", size = 10184 },
 ]
 
 [[package]]

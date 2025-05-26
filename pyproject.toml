@@ -12,8 +12,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-# enerhabitat = { indes = "tpypi" }
-enerhabitat = { path = }
+enerhabitat = { index = "tpypi" }
 
 [[tool.uv.index]]
 name = "tpypi"

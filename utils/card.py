@@ -50,8 +50,8 @@ def side_card(titulo=None):
                         for i, archivo in enumerate(os.listdir(PRECARGADOS_DIR), 1)
                         if os.path.isfile(os.path.join(PRECARGADOS_DIR, archivo))
                     },
-                    **{"upload": "↪ Subir mi propio archivo"},
-                },
+                    **{"upload": "↪ Subir archivo"},
+                },selected=f"precargado_{os.listdir(PRECARGADOS_DIR)[0]}"
             ),
             ui.output_ui("ui_upload"),
             ui.input_select(
@@ -68,24 +68,8 @@ def side_card(titulo=None):
         ),
         ui.card(
             ui.card_header("Sistemas constructivos"),
-            ui.navset_card_tab(
-                ui.nav_panel(
-                    "SC 1",
-                    ui.input_numeric(
-                        "absortancia", "Absortancia:", value=0.8, min=0, max=1
-                    ),
-                    ui.h5("Capas:"),
-                    ui.output_ui("ui_capas"),
-                    ui.input_action_button(
-                        "add_capa",
-                        "Agregar",
-                        width="100%",
-                        class_="btn-primary")
-                ),
-                ui.nav_panel("SC n"),
-                ui.nav_panel("SC n"),
-                ui.nav_panel("SC n"),
-            ),
+            ui.input_numeric("num_sc", "Número de sistemas:", value=1, min=1, step=1),
+            ui.output_ui("sc_panels"),
             ui.input_task_button(
                 "resolver_sc", "Calcular", label_busy="Calculando...", width="100%"
             ),
