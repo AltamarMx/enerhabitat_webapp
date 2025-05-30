@@ -16,13 +16,21 @@ app_ui = ui.page_fluid(
                 "Gráfica",
                 output_widget("sol_plot"),
             ),
-            ui.nav_panel("DataFrame", ui.output_data_frame("sol_df")),
+            ui.nav_panel(
+                "Día promedio",
+                ui.output_data_frame("dia_df"),                          
+            ),
+            ui.nav_panel(
+                "Resultados",
+                ui.output_data_frame("sol_df")
+            )
         ),
     )
 )
 
 def server(input, output, session):
-    data_frame = reactive.Value(None)
+    dia_promedio_dataframe = reactive.Value(pd.DataFrame())
+    soluciones_dataframe = reactive.Value(pd.DataFrame())
     current_file = reactive.Value(None)
 
     # Diccionario para mantener el registro de capas por cada sistema constructivo
@@ -32,7 +40,7 @@ def server(input, output, session):
     @reactive.Effect
     def _():
         num_sc = input.num_sc()
-        current_capas = capas_activas().copy()
+        current_capas = capas_activas.get().copy()
         
         updated = False
         # Asegurar que tenemos entradas para todos los SC
@@ -57,11 +65,9 @@ def server(input, output, session):
         # Solo se ejecuta cuando se presiona el botón resolver_sc
         sol_data_list = []
         num_sc = input.num_sc()
-        df = data_frame.get()
-        sol_data_list.append(df)
+        datos = dia_promedio_dataframe.get()
         for sc_id in range(1, num_sc + 1):
-            
-            
+            df = datos.copy()
             # Crear datos base para cada sistema constructivo
             sol_data = eh.Tsa(
                 meanDay_dataframe=df,
@@ -77,13 +83,13 @@ def server(input, output, session):
             sol_data = eh.solveCS(sc, sol_data)
             
             # Agregar identificador
-            sub_sol = sol_data[["Is","Tsa","Ti"]].add_suffix(f"_{sc_id}")
+            sub_sol = sol_data[["Ta","Is","Tsa","Ti"]].add_suffix(f"_{sc_id}")
             sol_data_list.append(sub_sol)
             
         # Combinar todos los resultados
         if sol_data_list:
             resultado = pd.concat(sol_data_list)
-            data_frame.set(resultado)
+            soluciones_dataframe.set(resultado)
 
     
     def sistemaConstructivo(sc_id):
@@ -109,11 +115,12 @@ def server(input, output, session):
             file_info = input.epw_file()[0]
             current_file.set(file_info["datapath"])
     
+    # Recalcular meanDay
     @reactive.Effect
     def _():
-        if current_file() is not None:
-            df = eh.meanDay(epw_file=current_file(), month=input.mes())
-            data_frame.set(df)
+        if current_file.get() is not None:
+            df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
+            dia_promedio_dataframe.set(df)
             
     # Agregar capa
     @reactive.Effect
@@ -220,28 +227,60 @@ def server(input, output, session):
     
     @render.data_frame
     def sol_df():
-        return render.DataGrid(data_frame.get())
+        datos = soluciones_dataframe.get()
+        if not datos.empty:
+            display_df = datos.copy()
+            display_df.insert(0, "Time", datos.index)
+            return render.DataGrid(
+                    display_df,
+                    summary="Viendo filas {start} a {end} de {total}"
+                )
+                
+        else:
+            return None
 
+    @render.data_frame
+    def dia_df():
+        datos = dia_promedio_dataframe.get()
+        if not datos.empty:
+            display_df = datos.copy()
+            display_df.insert(0, "Time", datos.index)
+            return render.DataGrid(
+                display_df,
+                summary="Viendo filas {start} a {end} de {total}"
+                )
     
     @render_widget
     def sol_plot():
-        sol_data = data_frame.get()
-        if sol_data is None:
-            return None
-        
-        if "Tsa_1" in sol_data.columns.values:
+        sol_data = soluciones_dataframe.get()
+        if sol_data.empty:
+            dia_data = dia_promedio_dataframe.get()
+            if dia_data.empty: return None
+            
+            # Gráfica de día promedio
+            display_data = dia_data.copy()[::60]
             solucion_plot = px.scatter(
-                data_frame=sol_data,
-                x=sol_data.index,
-                y=["Ta", "Tsa_1", "Ti_1"]
-            )
-        else:
-            solucion_plot = px.scatter(
-                data_frame=sol_data,
-                x=sol_data.index,
+                data_frame=display_data,
+                x=display_data.index,
                 y=["Ta"]
+            ).add_hrect(
+                y0=dia_data["Tn"].mean()-dia_data["DeltaTn"].mean(),
+                y1=dia_data["Tn"].mean()+dia_data["DeltaTn"].mean(),
+                fillcolor="lime",
+                opacity=0.3,
+                line_width=0
             )
+            
+        else :
+            display_data=sol_data.copy()
+            solucion_plot = px.scatter(
+                data_frame=display_data,
+                x=display_data.index,
+                y=display_data.columns
+            )
+        
         return solucion_plot
+            
         
 
 app = App(app_ui, server)
