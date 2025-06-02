@@ -137,37 +137,18 @@ def server(input, output, session):
 
     # Agregar capa
     @reactive.Effect
+    @reactive.event(*[input[f"add_capa_{sc_id}"] for sc_id in capas_activas()])
     def _():
         # Buscar qué botón de agregar capa fue presionado
         for sc_id in capas_activas():
             btn_id = f"add_capa_{sc_id}"
-            if btn_id in input and input[btn_id]() > 0:
-                current_capas = capas_activas().copy()
-                capa_id=max(current_capas[sc_id])+1
-                current_capas[sc_id].append(capa_id)
-                capas_activas.set(current_capas)
-                ui.insert_accordion_panel(
-                    f"capas_accordion_{sc_id}",
-                    ui.accordion_panel(
-                        f"Capa {capa_id}",
-                        ui.input_select(
-                            f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
-                        ),
-                        ui.input_numeric(
-                            f"ancho_capa_{sc_id}_{capa_id}",
-                            "Ancho (cm):",
-                            value=0.1,
-                            step=0.01,
-                            min=0.01,
-                        ),
-                        ui.input_action_button(
-                            f"remove_capa_{sc_id}_{capa_id}",
-                            "Eliminar",
-                            width="100%",
-                            class_="btn-light",
-                        ),
-                    ),
-                )
+            if btn_id in input:
+                if input[btn_id]() > 0:
+                    current_capas = capas_activas().copy()
+                    capa_id=max(current_capas[sc_id])+1
+                    current_capas[sc_id].append(capa_id)
+                    capas_activas.set(current_capas)
+                    break
 
     # Eliminar capa
     @reactive.Effect
@@ -209,32 +190,7 @@ def server(input, output, session):
                     update_on="blur",
                 ),
                 ui.h5("Capas:"),
-                ui.accordion(
-                    ui.accordion_panel(
-                    "Capa 1",
-                    ui.input_select(
-                        f"material_capa_{sc_id}_1", 
-                        "Material:", 
-                        materiales
-                    ),
-                    ui.input_numeric(
-                        f"ancho_capa_{sc_id}_1", 
-                        "Ancho (cm):", 
-                        value=0.1, 
-                        step=0.01, 
-                        min=0.01
-                    ),                  
-        #            ui.input_action_button(
-        #                f"remove_capa_{sc_id}_1",
-        #                "Eliminar",
-        #                width="100%",
-        #                class_="btn-light"
-        #            ) if capa_id > 1 else None
-                ),
-                    id=f"capas_accordion_{sc_id}",
-                    open=f"Capa {max(sistemas[sc_id])}",
-                    multiple=False,
-                ),
+                capas_ui(sc_id),
                 ui.input_task_button(
                     f"add_capa_{sc_id}",
                     "Agregar capa",
@@ -246,6 +202,40 @@ def server(input, output, session):
 
         return ui.navset_card_tab(*panels)
 
+    # Renderizar UI de capas
+    def capas_ui(sc_id):
+        capas = capas_activas().get(sc_id)
+        accordion_panels = []
+        for capa_id in capas:
+            accordion_panels.append(
+                ui.accordion_panel(
+                    f"Capa {capa_id}",
+                    ui.input_select(
+                        f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
+                    ),
+                    ui.input_numeric(
+                        f"ancho_capa_{sc_id}_{capa_id}",
+                        "Ancho (cm):",
+                        value=0.1,
+                        step=0.01,
+                        min=0.01,
+                    ),
+                    ui.input_action_button(
+                        f"remove_capa_{sc_id}_{capa_id}",
+                        "Eliminar",
+                        width="100%",
+                        class_="btn-light",
+                    ) if capa_id > 1 else None,
+                ),
+            )
+            
+        return ui.accordion(
+                *accordion_panels,
+                id=f"capas_accordion_{sc_id}",
+                open=f"Capa {max(capas)}",
+                multiple=False,
+            )
+    
     #   << DataFrames >>
     @render.data_frame
     def sol_df():
@@ -376,31 +366,7 @@ def server(input, output, session):
     def sistemaConstructivo(sc_id):
         return [
             (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
-            for i in ui_capas_activas().get(sc_id)
+            for i in capas_activas().get(sc_id)
         ]
-
-    # Creacion de accordion_panel de una capa
-    def capa(sistema_id, capa_id):
-        return ui.accordion_panel(
-                    f"Capa {capa_id}",
-                    ui.input_select(
-                        f"material_capa_{sistema_id}_{capa_id}", 
-                        "Material:", 
-                        materiales
-                    ),
-                    ui.input_numeric(
-                        f"ancho_capa_{sistema_id}_{capa_id}", 
-                        "Ancho (cm):", 
-                        value=0.1, 
-                        step=0.01, 
-                        min=0.01
-                    ),                  
-                    ui.input_action_button(
-                        f"remove_capa_{sistema_id}_{capa_id}",
-                        "Eliminar",
-                        width="100%",
-                        class_="btn-light"
-                    ) if capa_id > 1 else None
-                )
 
 app = App(app_ui, server)
