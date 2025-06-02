@@ -70,9 +70,7 @@ def side_card(titulo=None):
             ui.card_header("Sistemas constructivos"),
             ui.input_numeric("num_sc", "Número de sistemas:", value=1, min=1, step=1),
             ui.output_ui("sc_panels"),
-            ui.input_task_button(
-                "resolver_sc", "Calcular", label_busy="Calculando...", width="100%"
-            ),
+            ui.input_task_button("resolver_sc", "Calcular", label_busy="Calculando...", width="100%"),
         ),
         id="sidebar",
         width=350,
