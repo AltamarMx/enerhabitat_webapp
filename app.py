@@ -137,7 +137,6 @@ def server(input, output, session):
             df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
             dia_promedio_dataframe.set(df)
     
-
     # ui para subir archivo
     @output
     @render.ui
@@ -350,13 +349,13 @@ def server(input, output, session):
         ]
         
     
+    # Agregar capas
     add_counts = reactive.Value({})
-
     @reactive.Effect
     def _add_capa():
         # Lee AISLADAMENTE el estado actual de las capas
         with reactive.isolate():
-            current_caps = capas_activas.get()
+            current_caps = capas_activas.get().copy()
             
         # Recupero los contadores previos
         prev_counts = add_counts.get()
@@ -378,26 +377,31 @@ def server(input, output, session):
         # 4) Grabo de nuevo el diccionario completo
         add_counts.set(prev_counts)
     
-
+    # Eliminar capas
+    rmv_count = reactive.Value({})
     @reactive.Effect
     def _():
+        # Usamos isolate para evitar bucles infinitos
         with reactive.isolate():
             current_caps = capas_activas.get().copy()
-            # Nota: no tocamos add_counts
-    
-        # Identificar la capa a eliminar
+            prev_counts = rmv_count.get()
+
         eliminar_info = None
+
         for sc_id, capas in current_caps.items():
             for capa_id in capas:
-                if input[f"remove_capa_{sc_id}_{capa_id}"]() > 0:
+                cnt = input[f"remove_capa_{sc_id}_{capa_id}"]()
+                if  cnt > prev_counts.get(sc_id, 0):
                     eliminar_info = (sc_id, capa_id)
                     break
-                
-        # Realizar la eliminación SIN tocar add_counts
+                prev_counts[sc_id] = cnt
+        
+        
+        
         if eliminar_info:
             sc_id, capa_id = eliminar_info
             nueva = [c for c in current_caps[sc_id] if c != capa_id]
             current_caps[sc_id] = nueva
             capas_activas.set(current_caps)
-                    
+
 app = App(app_ui, server)
