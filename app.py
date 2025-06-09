@@ -15,7 +15,7 @@ from utils.card import side_card, PRECARGADOS_DIR, materiales
 app_ui = ui.page_fluid(
     ui.page_sidebar(
         side_card(),
-        ui.navset_card_tab(
+        ui.page_navbar(
             ui.nav_panel(
                 "Resultados",
                 ui.card(
@@ -36,7 +36,9 @@ app_ui = ui.page_fluid(
                 "Datos resultados",
                 ui.output_data_frame("sol_df"),
                 ui.download_button("down_res", "Descargar datos")
-            )
+            ),
+            title="EnerHabitat",
+            id="nav_bar"
         ),
     )
 )
@@ -278,7 +280,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=["Ta"],
-                labels={'index':'Hora', 'value':'Temperatura (°C)'}
+                labels={'index':'Hora', 'value':'Temperatura °C'}
             )
 
         else :
@@ -290,7 +292,8 @@ def server(input, output, session):
             solucion_plot = px.scatter(
                 data_frame=display_data,
                 x=display_data.index,
-                y=columnas
+                y=columnas,
+                labels={'index':'Hora', 'value':'Temperatura °C'}
             )
 
         # Franja horizontal
@@ -318,7 +321,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=["Ig","Ib","Id"],
-                labels={'index':'Hora', 'value':'Irradiancia (W/m²)'}
+                labels={'index':'Hora', 'value':'Irradiancia W/m²'}
             )
 
         else :
@@ -331,7 +334,8 @@ def server(input, output, session):
             solucion_plot = px.scatter(
                 data_frame=display_data,
                 x=display_data.index,
-                y=columnas
+                y=columnas,
+                labels={'index':'Hora', 'value':'Irradiancia W/m²'}
             )
 
         return solucion_plot
