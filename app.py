@@ -80,10 +80,14 @@ def server(input, output, session):
 
             # Agregar Ta solo la primera vez
             if sc_id == 1:
-                sol_data_list.append(sol_data[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id"]])
+                sol_data_list.append(sol_data[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]])
 
+            # Convertir el sc_id a subindice
+            SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+            sc_id_sub = str(sc_id).translate(SUB)
+            
             # Agregar identificador
-            sub_sol = sol_data[["Is","Tsa","Ti"]].add_suffix(f"_{sc_id}")
+            sub_sol = sol_data[["Tsa","Ti"]].add_suffix(f"{sc_id_sub}")
             sol_data_list.append(sub_sol)
 
         # Combinar todos los resultados
