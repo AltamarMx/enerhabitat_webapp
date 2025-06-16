@@ -50,7 +50,7 @@ def side_card():
                         for i, archivo in enumerate(os.listdir(PRECARGADOS_DIR), 1)
                         if os.path.isfile(os.path.join(PRECARGADOS_DIR, archivo))
                     },
-                    **{"upload": "↪ Subir archivo"},
+                    **{"upload": " 🗎 Subir archivo"},
                 },selected=f"precargado_{os.listdir(PRECARGADOS_DIR)[0]}"
             ),
             ui.output_ui("ui_upload"),
@@ -76,4 +76,52 @@ def side_card():
         id="sidebar",
         width=350,
         position="right",
+    )
+
+def sc_panel(sc_id):
+    elementos = [
+        ui.input_numeric(
+            f"absortancia_{sc_id}",
+            "Absortancia:",
+            value=0.8,
+            min=0,
+            max=1,
+            step=0.01,
+            update_on="blur",
+        ),
+        ui.h5("Capas:"),
+        ui.accordion(
+            capa_panel(sc_id, 1),
+            id=f"capas_accordion_{sc_id}",
+            open=f"Capa 1",
+            multiple=False,
+        ),
+        ui.input_task_button(
+            f"add_capa_{sc_id}",
+            "Agregar capa",
+            width="100%",
+            class_="btn-secondary",
+        )
+    ]
+
+    return ui.nav_panel(f"SC {sc_id}", elementos)
+
+def capa_panel(sc_id, capa_id):
+    return ui.accordion_panel(
+        f"Capa {capa_id}",
+        ui.input_select(
+            f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
+        ),
+        ui.input_numeric(
+            f"ancho_capa_{sc_id}_{capa_id}",
+            "Ancho (m):",
+            value=0.1,
+            step=0.01,
+            min=0.01,
+        ),ui.input_action_button(
+            f"remove_capa_{sc_id}_{capa_id}",
+            "Eliminar",
+            width="100%",
+            class_="btn-light",
+        ) if capa_id > 1 else None
     )
