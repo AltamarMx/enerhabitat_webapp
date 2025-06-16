@@ -37,8 +37,8 @@ app_ui = ui.page_fluid(
                 ui.output_data_frame("sol_df"),
                 ui.download_button("down_res", "Descargar datos")
             ),
-            title="EnerHabitat",
-            id="nav_bar"
+            title="EnerHabitat",  
+            id="home"
         ),
     )
 )
