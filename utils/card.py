@@ -35,10 +35,10 @@ azimuth = {
 materiales = eh.get_list_materials()
 
 
-def side_card(titulo=None):
+def side_card():
     return ui.sidebar(
-        ui.card_header(f"{titulo}") if titulo else None,
         # ui.input_dark_mode(),
+        
         ui.card(
             ui.card_header("Datos cimáticos"),
             ui.input_select(
@@ -60,6 +60,7 @@ def side_card(titulo=None):
                 meses,
                 selected="Enero",
             ),
+            ui.input_checkbox("mostrar_Tsa", "Mostrar Tsa", False),
         ),
         ui.card(
             ui.card_header("Datos geométricos"),

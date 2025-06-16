@@ -80,10 +80,14 @@ def server(input, output, session):
 
             # Agregar Ta solo la primera vez
             if sc_id == 1:
-                sol_data_list.append(sol_data[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id"]])
+                sol_data_list.append(sol_data[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]])
 
+            # Convertir el sc_id a subindice
+            SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+            sc_id_sub = str(sc_id).translate(SUB)
+            
             # Agregar identificador
-            sub_sol = sol_data[["Is","Tsa","Ti"]].add_suffix(f"_{sc_id}")
+            sub_sol = sol_data[["Tsa","Ti"]].add_suffix(f"{sc_id_sub}")
             sol_data_list.append(sub_sol)
 
         # Combinar todos los resultados
@@ -136,53 +140,7 @@ def server(input, output, session):
         if current_file.get() is not None:
             df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
             dia_promedio_dataframe.set(df)
-
-    # Agregar capa
-    @reactive.Effect
-    def _():
-        # Buscar qué botón de agregar capa fue presionado
-        for sc_id in capas_activas():
-            btn_id = f"add_capa_{sc_id}"
-            if btn_id in input and input[btn_id]() > 0:
-                current_capas = capas_activas().copy()
-                capa_id=max(current_capas[sc_id])+1
-                current_capas[sc_id].append(capa_id)
-                capas_activas.set(current_capas)
-                ui.insert_accordion_panel(
-                    f"capas_accordion_{sc_id}",
-                    ui.accordion_panel(
-                        f"Capa {capa_id}",
-                        ui.input_select(
-                            f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
-                        ),
-                        ui.input_numeric(
-                            f"ancho_capa_{sc_id}_{capa_id}",
-                            "Ancho (cm):",
-                            value=0.1,
-                            step=0.01,
-                            min=0.01,
-                        ),
-                        ui.input_action_button(
-                            f"remove_capa_{sc_id}_{capa_id}",
-                            "Eliminar",
-                            width="100%",
-                            class_="btn-light",
-                        ),
-                    ),
-                )
-
-    # Eliminar capa
-    @reactive.Effect
-    def _():
-        for sc_id, capas in capas_activas().items():
-            for i in capas:
-                if i == 1: continue
-                btn_id = f"remove_capa_{sc_id}_{i}"
-                if btn_id in input and input[btn_id]() > 0:
-                    new_dict = capas_activas().copy()
-                    new_dict[sc_id] = [c for c in capas if c != i]
-                    capas_activas.set(new_dict)
-
+    
     # ui para subir archivo
     @output
     @render.ui
@@ -195,73 +153,77 @@ def server(input, output, session):
     @output 
     @render.ui
     def sc_panels():    
-        sistemas = capas_activas()
-        panels = []
+        sistemas = capas_activas.get().copy()
+        paneles = []
 
-        for sc_id in sistemas:
-            panel = ui.nav_panel(
-                f"SC {sc_id}",
-                ui.input_numeric(
-                    f"absortancia_{sc_id}",
-                    "Absortancia:",
-                    value=0.8,
-                    min=0,
-                    max=1,
-                    step=0.01,
-                    update_on="blur",
-                ),
-                ui.h5("Capas:"),
-                ui.accordion(
+        for sc_id, capas in sistemas.items():
+            elementos = [ui.input_numeric(
+                        f"absortancia_{sc_id}",
+                        "Absortancia:",
+                        value=0.8,
+                        min=0,
+                        max=1,
+                        step=0.01,
+                        update_on="blur",
+                        ),
+                        ui.h5("Capas:")]
+            
+            accordion_panels = []
+            for capa_id in capas:
+                accordion_panels.append(
                     ui.accordion_panel(
-                    "Capa 1",
-                    ui.input_select(
-                        f"material_capa_{sc_id}_1", 
-                        "Material:", 
-                        materiales
+                        f"Capa {capa_id}",
+                        ui.input_select(
+                            f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
+                        ),
+                        ui.input_numeric(
+                            f"ancho_capa_{sc_id}_{capa_id}",
+                            "Ancho (m):",
+                            value=0.1,
+                            step=0.01,
+                            min=0.01,
+                        ),
+                        ui.input_action_button(
+                            f"remove_capa_{sc_id}_{capa_id}",
+                            "Eliminar",
+                            width="100%",
+                            class_="btn-light",
+                        ) if len(capas) > 1 else None,
                     ),
-                    ui.input_numeric(
-                        f"ancho_capa_{sc_id}_1", 
-                        "Ancho (cm):", 
-                        value=0.1, 
-                        step=0.01, 
-                        min=0.01
-                    ),                  
-        #            ui.input_action_button(
-        #                f"remove_capa_{sc_id}_1",
-        #                "Eliminar",
-        #                width="100%",
-        #                class_="btn-light"
-        #            ) if capa_id > 1 else None
-                ),
+                )
+                
+            elementos.append(
+                ui.accordion(
+                    *accordion_panels,
                     id=f"capas_accordion_{sc_id}",
-                    open=f"Capa {max(sistemas[sc_id])}",
-                    multiple=False,
-                ),
+                    open=f"Capa {max(capas)}",
+                    multiple=False))
+            elementos.append(
                 ui.input_task_button(
                     f"add_capa_{sc_id}",
                     "Agregar capa",
                     width="100%",
                     class_="btn-secondary",
-                ),
-            )
-            panels.append(panel)
+                ))
+            
+            panel = ui.nav_panel(
+                    f"SC {sc_id}",
+                    elementos)
 
-        return ui.navset_card_tab(*panels)
+            paneles.append(panel)
 
-    #   << DataFrames >>
+        return ui.navset_card_tab(*paneles)
+    
+    #   << DataFrames >>    
     @render.data_frame
     def sol_df():
-        datos = soluciones_dataframe.get()
+        datos = soluciones_dataframe.get().copy()
         if not datos.empty:
-            display_df = datos.copy()
-            display_df.insert(0, "Time", datos.index)
-            return render.DataGrid(
-                    display_df,
-                    summary="Viendo filas {start} a {end} de {total}"
+            datos.insert(0, "Time", datos.index)
+        return render.DataGrid(
+                datos,
+                summary="Viendo filas {start} a {end} de {total}"
                 )
-
-        else:
-            return None
 
     @render.data_frame
     def dia_df():
@@ -290,7 +252,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=["Ta"],
-                labels={'index':'Hora', 'value':'Temperatura °C'}
+                labels={'index':'Hora', 'value':'°C','variable':'Temperatura'}
             )
 
         else :
@@ -299,11 +261,18 @@ def server(input, output, session):
             for i in display_data.columns[1:]:
                 if i.startswith("T"):
                     columnas.append(i)
+            
+            # Limpieza de Tsa
+            if not input.mostrar_Tsa():
+                for i in columnas:
+                    if i.startswith("Tsa"):
+                        columnas.remove(i)
+                
             solucion_plot = px.scatter(
                 data_frame=display_data,
                 x=display_data.index,
                 y=columnas,
-                labels={'index':'Hora', 'value':'Temperatura °C'}
+                labels={'index':'Hora', 'value':'°C','variable':'Temperatura'}
             )
 
         # Franja horizontal
@@ -331,7 +300,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=["Ig","Ib","Id"],
-                labels={'index':'Hora', 'value':'Irradiancia W/m²'}
+                labels={'index':'Hora', 'value':'W/m²','variable':'Irradiancia'}
             )
 
         else :
@@ -345,7 +314,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=columnas,
-                labels={'index':'Hora', 'value':'Irradiancia W/m²'}
+                labels={'index':'Hora', 'value':'W/m²','variable':'Irradiancia'}
             )
 
         return solucion_plot
@@ -382,29 +351,61 @@ def server(input, output, session):
             (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
             for i in capas_activas().get(sc_id)
         ]
+        
+    
+    # Agregar capas
+    add_counts = reactive.Value({})
+    @reactive.Effect
+    def _add_capa():
+        # Lee AISLADAMENTE el estado actual de las capas
+        with reactive.isolate():
+            current_caps = capas_activas.get().copy()
+            
+        # Recupero los contadores previos
+        prev_counts = add_counts.get()
 
-    # Creacion de accordion_panel de una capa
-    def capa(sistema_id, capa_id):
-        return ui.accordion_panel(
-                    f"Capa {capa_id}",
-                    ui.input_select(
-                        f"material_capa_{sistema_id}_{capa_id}", 
-                        "Material:", 
-                        materiales
-                    ),
-                    ui.input_numeric(
-                        f"ancho_capa_{sistema_id}_{capa_id}", 
-                        "Ancho (cm):", 
-                        value=0.1, 
-                        step=0.01, 
-                        min=0.01
-                    ),                  
-                    ui.input_action_button(
-                        f"remove_capa_{sistema_id}_{capa_id}",
-                        "Eliminar",
-                        width="100%",
-                        class_="btn-light"
-                    ) if capa_id > 1 else None
-                )
+        # Recorro cada sistema constructivo
+        for sc_id, capas in current_caps.items():
+            # número de veces que se ha pulsado AHORA
+            cnt = input[f"add_capa_{sc_id}"]()
+            # si ha aumentado desde la última vez
+            if cnt > prev_counts.get(sc_id, 0):
+                # construyo el nuevo estado
+                siguiente = max(capas) + 1
+                nueva = {**current_caps, sc_id: capas + [siguiente]}
+                # actualizo el estado de capas
+                capas_activas.set(nueva)
+            # guardo el contador para la próxima ejecución
+            prev_counts[sc_id] = cnt
+
+        # 4) Grabo de nuevo el diccionario completo
+        add_counts.set(prev_counts)
+    
+    # Eliminar capas
+    rmv_count = reactive.Value({})
+    @reactive.Effect
+    def _():
+        # Usamos isolate para evitar bucles infinitos
+        with reactive.isolate():
+            current_caps = capas_activas.get().copy()
+            prev_counts = rmv_count.get()
+
+        eliminar_info = None
+
+        for sc_id, capas in current_caps.items():
+            for capa_id in capas:
+                cnt = input[f"remove_capa_{sc_id}_{capa_id}"]()
+                if  cnt > prev_counts.get(sc_id, 0):
+                    eliminar_info = (sc_id, capa_id)
+                    break
+                prev_counts[sc_id] = cnt
+        
+        
+        
+        if eliminar_info:
+            sc_id, capa_id = eliminar_info
+            nueva = [c for c in current_caps[sc_id] if c != capa_id]
+            current_caps[sc_id] = nueva
+            capas_activas.set(current_caps)
 
 app = App(app_ui, server)
