@@ -14,7 +14,7 @@ from utils.card import side_card, sc_panel, capa_panel, PRECARGADOS_DIR
 
 app_ui = ui.page_fluid(
     ui.modal(  
-        "Esta es una versión beta de la inrefaz web de EnerHabitat, no es fiable usarla",  
+        "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",  
         title="EnerHabitat sigue en desarrollo",  
         easy_close=True,
         footer=None
