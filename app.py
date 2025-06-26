@@ -13,6 +13,12 @@ from utils.card import side_card, sc_panel, capa_panel, PRECARGADOS_DIR
 
 
 app_ui = ui.page_fluid(
+    ui.modal(  
+        "Esta es una versión beta de la inrefaz web de EnerHabitat, no es fiable usarla",  
+        title="EnerHabitat sigue en desarrollo",  
+        easy_close=True,
+        footer=None
+    ),
     ui.page_sidebar(
         side_card(),
         ui.page_navbar(
@@ -292,8 +298,8 @@ def server(input, output, session):
         # Convertir numeros a subindice
         SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
         cadena_mod = str(cadena).translate(SUB)
-        return cadena_mod
-
+        return cadena_mod 
+    
     # Agregar capas
     add_counts = reactive.Value({})
 
@@ -339,7 +345,7 @@ def server(input, output, session):
         add_counts.set(prev_counts)
 
     # Eliminar capas
-    rmv_counts = reactive.Value({1 : {1 : 0}}) # {sc_id : {capa_id : rmv_cnt}}
+    rmv_counts = reactive.Value({}) # {sc_id : {capa_id : rmv_cnt}}
     @reactive.Effect
     def _():
         
@@ -359,13 +365,16 @@ def server(input, output, session):
                 # número de veces que se ha pulsado AHORA
                 cnt = input[f"remove_capa_{sc_id}_{capa_id}"]()
                 
-                aux = prev_counts.get(sc_id, {})
+                aux = prev_counts.get(sc_id, {}).get(capa_id, 0)
 
                 # si ha aumentado desde la última vez
-                if cnt > aux.get(capa_id, 0):
+                if cnt > aux:
+                    # guardo el contador para la próxima ejecución
+                    prev_counts[sc_id][capa_id] = cnt
                     
                     # construyo el nuevo estado
-                    nueva = {**current_capas, sc_id: capas.remove(capa_id)}
+                    capas.remove(capa_id)
+                    nueva = {**current_capas, sc_id: capas}
                 
                     # actualizo el estado de capas
                     capas_activas.set(nueva)
@@ -376,11 +385,8 @@ def server(input, output, session):
                         target=f"Capa {capa_id}"
                     )                    
 
-                # guardo el contador para la próxima ejecución
-                prev_counts[sc_id][capa_id] = cnt
-            
-            # Grabo de nuevo el diccionario completo
-            rmv_counts.set(prev_counts)
+                # Grabo de nuevo el diccionario completo
+                rmv_counts.set(prev_counts)
         
  
 app = App(app_ui, server)
