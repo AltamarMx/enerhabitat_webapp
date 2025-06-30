@@ -36,9 +36,8 @@ materiales = eh.get_list_materials()
 
 
 def side_card():
-    return ui.sidebar(
+    return [
         # ui.input_dark_mode(),
-        
         ui.card(
             ui.card_header("Datos cimáticos"),
             ui.input_select(
@@ -50,8 +49,9 @@ def side_card():
                         for i, archivo in enumerate(os.listdir(PRECARGADOS_DIR), 1)
                         if os.path.isfile(os.path.join(PRECARGADOS_DIR, archivo))
                     },
-                    **{"upload": "↪ Subir archivo"},
-                },selected=f"precargado_{os.listdir(PRECARGADOS_DIR)[0]}"
+                    **{"upload": " 🗎 Subir archivo"},
+                },
+                selected=f"precargado_{os.listdir(PRECARGADOS_DIR)[0]}",
             ),
             ui.output_ui("ui_upload"),
             ui.input_select(
@@ -71,9 +71,59 @@ def side_card():
             ui.card_header("Sistemas constructivos"),
             ui.input_numeric("num_sc", "Número de sistemas:", value=1, min=1, step=1),
             ui.output_ui("sc_panels"),
-            ui.input_task_button("resolver_sc", "Calcular", label_busy="Calculando...", width="100%"),
+            ui.input_task_button(
+                "resolver_sc", "Calcular", label_busy="Calculando...", width="100%",type="success"
+            ),
         ),
-        id="sidebar",
-        width=350,
-        position="right",
+    ]
+
+def sc_panel(sc_id):
+    elementos = [
+        ui.input_numeric(
+            f"absortancia_{sc_id}",
+            "Absortancia:",
+            value=0.8,
+            min=0,
+            max=1,
+            step=0.01,
+            update_on="blur",
+        ),
+        ui.h5("Capas:"),
+        ui.accordion(
+            capa_panel(sc_id, 1),
+            id=f"capas_accordion_{sc_id}",
+            open=f"Capa 1"
+        ),
+        ui.layout_column_wrap(
+            ui.input_action_button(
+                f"remove_capa_{sc_id}",
+                "🞬",
+                # width="100%",
+                class_="btn-danger",
+            ),
+            ui.input_task_button(
+                f"add_capa_{sc_id}",
+                "✚",
+                # width="100%",
+                class_="btn-primary",
+            ),
+            width=1/2
+        ),
+    ]
+
+    return ui.nav_panel(f"SC {sc_id}", elementos)
+
+def capa_panel(sc_id, capa_id):
+    return ui.accordion_panel(
+        f"Capa {capa_id}",
+        ui.input_select(
+            f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
+        ),
+        ui.input_numeric(
+            f"ancho_capa_{sc_id}_{capa_id}",
+            "Ancho (m):",
+            value=0.1,
+            step=0.01,
+            min=0.01,
+        )
     )
