@@ -13,34 +13,39 @@ from utils.card import side_card, sc_panel, capa_panel, PRECARGADOS_DIR
 
 
 app_ui = ui.page_fluid(
-    ui.modal(  
-        "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",  
-        title="EnerHabitat sigue en desarrollo",  
+    ui.modal(
+        "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",
+        title="EnerHabitat sigue en desarrollo",
         easy_close=True,
-        footer=None
+        footer=None,
     ),
-    ui.page_sidebar(
-        side_card(),
-        ui.page_navbar(
-            ui.nav_panel(
-                "Resultados",
+    ui.page_navbar(
+        ui.nav_panel(
+            "Resultados",
+            ui.page_sidebar(
+                ui.sidebar(
+                    side_card(),
+                    id="sidebar",
+                    width=350,
+                    position="right",
+                ),
                 ui.card(ui.card_header("Temperatura"), output_widget("sol_plot")),
                 ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot")),
             ),
-            ui.nav_panel(
-                "Datos día promedio",
-                ui.output_data_frame("dia_df"),
-                ui.download_button("down_dia", "Descargar datos"),
-            ),
-            ui.nav_panel(
-                "Datos resultados",
-                ui.output_data_frame("sol_df"),
-                ui.download_button("down_res", "Descargar datos"),
-            ),
-            title="EnerHabitat",
-            id="nav_bar",
         ),
-    )
+        ui.nav_panel(
+            "Datos día promedio",
+            ui.output_data_frame("dia_df"),
+            ui.download_button("down_dia", "Descargar datos", width="100%"),
+        ),
+        ui.nav_panel(
+            "Datos resultados",
+            ui.output_data_frame("sol_df"),
+            ui.download_button("down_res", "Descargar datos", width="100%")
+        ),
+        title="EnerHabitat",
+        id="nav_bar",
+    ),
 )
 
 
@@ -52,7 +57,154 @@ def server(input, output, session):
 
     # Diccionario para mantener el registro de capas por cada sistema constructivo
     capas_activas = reactive.Value({1: [1]})  # {sc_id : [capas]}
+    
+    """
+    ==================================================
+                Lo que a veces NO funciona
+    ==================================================
+    """
+    # Actualizar capas_activas cuando cambia el número de SC
+    @reactive.Effect
+    def _():
+        num_sc = input.num_sc()
+        current_capas = capas_activas.get().copy()
 
+        updated = False
+        # Asegurar que tenemos entradas para todos los SC
+        for sc_id in range(1, num_sc + 1):
+            if sc_id not in current_capas:
+                current_capas[sc_id] = [1]
+                updated = True
+
+        # Eliminar SC que ya no existen
+        to_remove = [sc_id for sc_id in list(current_capas.keys()) if sc_id > num_sc]
+        if to_remove:
+            for sc_id in to_remove:
+                del current_capas[sc_id]
+            updated = True
+
+        if updated:
+            capas_activas.set(current_capas)
+            
+    # ui de cada panel de SC
+    @output
+    @render.ui
+    def sc_panels():
+        num_sc = input.num_sc()
+        paneles = []
+
+        for sc_id in range(1, num_sc + 1):
+            paneles.append(sc_panel(sc_id))
+
+        return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"SC {num_sc}")
+    
+    # Agregar capas
+    add_counts = reactive.Value({})
+    @reactive.Effect
+    def _add_capa():
+        # Lee AISLADAMENTE el estado actual de las capas
+        with reactive.isolate():
+            current_capas = capas_activas.get().copy()
+
+        # Recupero los contadores previos
+        prev_counts = add_counts.get()
+
+        # Recorro cada sistema constructivo
+        for sc_id, capas in current_capas.items():
+            
+            # número de veces que se ha pulsado AHORA
+            cnt = input[f"add_capa_{sc_id}"]()
+                 
+            # si ha aumentado desde la última vez
+            if cnt > prev_counts.get(sc_id, 0):
+                
+                # construyo el nuevo estado
+                siguiente = max(capas) + 1
+                nueva = {**current_capas, sc_id: capas + [siguiente]}
+                
+                # actualizo el estado de capas
+                capas_activas.set(nueva)
+                
+                # Agrego el panel al acoredeon y lo muestro
+                ui.insert_accordion_panel(
+                    id=f"capas_accordion_{sc_id}",
+                    panel=capa_panel(sc_id, siguiente),
+                )
+                ui.update_accordion(
+                    id=f"capas_accordion_{sc_id}",
+                    show=f"Capa {siguiente}"
+                )
+            
+            # guardo el contador para la próxima ejecución
+            prev_counts[sc_id] = cnt
+            
+        # Grabo de nuevo el diccionario completo
+        add_counts.set(prev_counts)
+
+    # Eliminar capas
+    rmv_counts = reactive.Value({}) # {sc_id : rmv_cnt}}
+    @reactive.Effect
+    def _remove_capa():
+        
+        # Lee AISLADAMENTE el estado actual de las capas
+        with reactive.isolate():
+            current_capas = capas_activas.get().copy()
+
+        # Recupero los contadores previos
+        prev_counts = rmv_counts.get()
+
+        # Recorro cada sistema constructivo
+        for sc_id, capas in current_capas.items():
+            btn_id = f"remove_capa_{sc_id}"
+            
+            # número de veces que se ha pulsado AHORA
+            cnt = input[btn_id]()
+            
+            # si ha aumentado desde la última vez
+            if cnt > prev_counts.get(sc_id, 0) and len(capas)>1:
+                # construyo el nuevo estado
+                eliminado = capas.pop()
+                nueva = {**current_capas, sc_id: capas}
+                
+                # actualizo el estado de capas
+                capas_activas.set(nueva)
+                
+                # Elimino el panel del acoredeon y muestro el anterior
+                ui.update_accordion(
+                    id=f"capas_accordion_{sc_id}",
+                    show=f"Capa {eliminado-1}"
+                )
+                ui.remove_accordion_panel(
+                    id=f"capas_accordion_{sc_id}",
+                    target=f"Capa {eliminado}",
+                )
+                
+            # guardo el contador para la próxima ejecución
+            prev_counts[sc_id] = cnt
+            
+        # Grabo de nuevo el diccionario completo
+        rmv_counts.set(prev_counts)
+
+    #   << Funciones auxiliares >>
+    # Regresa lista de tuplas para el sc_id
+    def sistemaConstructivo(sc_id):
+        return [
+            (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
+            for i in capas_activas().get(sc_id)
+        ]
+
+    def subIndex(cadena):
+        # Convertir numeros a subindice
+        SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+        cadena_mod = str(cadena).translate(SUB)
+        cadena_mod.replace('_','')
+        return cadena_mod
+    
+    """
+    ==================================================
+                    Lo que funciona
+    ==================================================
+    """
     # Resolver sistemas constructivos
     @reactive.Effect
     @reactive.event(input.resolver_sc)
@@ -110,29 +262,6 @@ def server(input, output, session):
             file_info = input.epw_file()[0]
             current_file.set(file_info["datapath"])
 
-    # Actualizar capas_activas cuando cambia el número de SC
-    @reactive.Effect
-    def _():
-        num_sc = input.num_sc()
-        current_capas = capas_activas.get().copy()
-
-        updated = False
-        # Asegurar que tenemos entradas para todos los SC
-        for sc_id in range(1, num_sc + 1):
-            if sc_id not in current_capas:
-                current_capas[sc_id] = [1]
-                updated = True
-
-        # Eliminar SC que ya no existen
-        to_remove = [sc_id for sc_id in list(current_capas.keys()) if sc_id > num_sc]
-        if to_remove:
-            for sc_id in to_remove:
-                del current_capas[sc_id]
-            updated = True
-
-        if updated:
-            capas_activas.set(current_capas)
-
     # Recalcular meanDay cuando cambie el EPW o el mes
     @reactive.Effect
     def _():
@@ -148,25 +277,15 @@ def server(input, output, session):
             return ui.input_file("epw_file", label="", accept=[".epw"], multiple=False)
         return None
 
-    # ui inicial de cada panel de SC
-    @output
-    @render.ui
-    def sc_panels():
-        num_sc = input.num_sc()
-        paneles = []
-
-        for sc_id in range(1, num_sc + 1):
-            paneles.append(sc_panel(sc_id))
-
-        return ui.navset_card_tab(*paneles)
-
     #   << DataFrames >>
     @render.data_frame
     def sol_df():
         datos = soluciones_dataframe.get().copy()
+        datos.insert(0, "Time", datos.index)
         if not datos.empty:
-            datos.insert(0, "Time", datos.index)
-        return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
+            return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
+        else:
+            return None
 
     @render.data_frame
     def dia_df():
@@ -191,6 +310,7 @@ def server(input, output, session):
         if sol_data.empty:
             # Gráfica de día promedio
             display_data = dia_data.copy()[::60]  # Cada segundo
+            
             solucion_plot = px.scatter(
                 data_frame=display_data,
                 x=display_data.index,
@@ -286,107 +406,6 @@ def server(input, output, session):
         buffer.seek(0)
         return buffer
 
-    #   << Funciones auxiliares >>
-    # Regresa lista de tuplas para el sc_id
-    def sistemaConstructivo(sc_id):
-        return [
-            (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
-            for i in capas_activas().get(sc_id)
-        ]
+   
 
-    def subIndex(cadena):
-        # Convertir numeros a subindice
-        SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-        cadena_mod = str(cadena).translate(SUB)
-        return cadena_mod 
-    
-    # Agregar capas
-    add_counts = reactive.Value({})
-
-    @reactive.Effect
-    def _add_capa():
-        # Lee AISLADAMENTE el estado actual de las capas
-        with reactive.isolate():
-            current_capas = capas_activas.get().copy()
-
-        # Recupero los contadores previos
-        prev_counts = add_counts.get()
-
-        # Recorro cada sistema constructivo
-        for sc_id, capas in current_capas.items():
-            
-            # número de veces que se ha pulsado AHORA
-            cnt = input[f"add_capa_{sc_id}"]()
-                 
-            # si ha aumentado desde la última vez
-            if cnt > prev_counts.get(sc_id, 0):
-                
-                # construyo el nuevo estado
-                siguiente = max(capas) + 1
-                nueva = {**current_capas, sc_id: capas + [siguiente]}
-                
-                # actualizo el estado de capas
-                capas_activas.set(nueva)
-                
-                # Agrego el panel al acoredeon y lo muestro
-                ui.insert_accordion_panel(
-                    id=f"capas_accordion_{sc_id}",
-                    panel=capa_panel(sc_id, siguiente),
-                )
-                ui.update_accordion(
-                    id=f"capas_accordion_{sc_id}",
-                    show=f"Capa {siguiente}"
-                )
-            
-            # guardo el contador para la próxima ejecución
-            prev_counts[sc_id] = cnt
-            
-        # Grabo de nuevo el diccionario completo
-        add_counts.set(prev_counts)
-
-    # Eliminar capas
-    rmv_counts = reactive.Value({}) # {sc_id : {capa_id : rmv_cnt}}
-    @reactive.Effect
-    def _():
-        
-        # Lee AISLADAMENTE el estado actual de las capas
-        with reactive.isolate():
-            current_capas = capas_activas.get().copy()
-
-        # Recupero los contadores previos
-        prev_counts = rmv_counts.get()
-
-        # Recorro cada sistema constructivo
-        for sc_id, capas in current_capas.items():
-            for capa_id in capas:
-                if capa_id == 1:
-                    continue
-                    
-                # número de veces que se ha pulsado AHORA
-                cnt = input[f"remove_capa_{sc_id}_{capa_id}"]()
-                
-                aux = prev_counts.get(sc_id, {}).get(capa_id, 0)
-
-                # si ha aumentado desde la última vez
-                if cnt > aux:
-                    # guardo el contador para la próxima ejecución
-                    prev_counts[sc_id][capa_id] = cnt
-                    
-                    # construyo el nuevo estado
-                    capas.remove(capa_id)
-                    nueva = {**current_capas, sc_id: capas}
-                
-                    # actualizo el estado de capas
-                    capas_activas.set(nueva)
-                    
-                    # Quito el panel
-                    ui.remove_accordion_panel(
-                        id=f"capas_accordion_{sc_id}",
-                        target=f"Capa {capa_id}"
-                    )                    
-
-                # Grabo de nuevo el diccionario completo
-                rmv_counts.set(prev_counts)
-        
- 
 app = App(app_ui, server)
