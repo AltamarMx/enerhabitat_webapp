@@ -91,12 +91,22 @@ def server(input, output, session):
     @render.ui
     def ui_sc_panels():
         num_sc = input.num_sc()
-        paneles = []
 
-        for sc_id in range(1, num_sc + 1):
-            paneles.append(sc_panel(sc_id))
+        # Mantener la pestaña actualmente seleccionada, siempre que exista
+        selected = input.sc_seleccionado() if "sc_seleccionado" in input else None
+        if selected is not None:
+            try:
+                sel_val = int(selected)
+                if sel_val > num_sc:
+                    selected = str(num_sc)
+            except Exception:
+                selected = str(num_sc)
+        else:
+            selected = str(num_sc)
 
-        return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"{num_sc}")
+        paneles = [sc_panel(sc_id) for sc_id in range(1, num_sc + 1)]
+
+        return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=selected)
     
     #Nombre de capa
     @reactive.Effect
