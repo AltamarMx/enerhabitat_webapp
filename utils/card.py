@@ -39,7 +39,7 @@ def side_card():
     return [
         # ui.input_dark_mode(),
         ui.card(
-            ui.card_header("Datos cimáticos"),
+            ui.card_header("Datos climáticos"),
             ui.input_select(
                 id="selector_archivo",
                 label="Archivo EPW:",
