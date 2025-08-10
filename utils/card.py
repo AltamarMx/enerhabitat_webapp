@@ -70,7 +70,7 @@ def side_card():
         ui.card(
             ui.card_header("Sistemas constructivos"),
             ui.input_numeric("num_sc", "Número de sistemas:", value=1, min=1, step=1),
-            ui.output_ui("ui_sc_panels"),
+            ui.output_ui("sc_panels"),
             ui.input_task_button(
                 "resolver_sc", "Calcular", label_busy="Calculando...", width="100%",type="success"
             ),
@@ -92,8 +92,7 @@ def sc_panel(sc_id):
         ui.accordion(
             capa_panel(sc_id, 1),
             id=f"capas_accordion_{sc_id}",
-            open=f"capa_{sc_id}_1",
-            multiple=False
+            open=f"Capa 1"
         ),
         ui.layout_column_wrap(
             ui.input_action_button(
@@ -112,7 +111,7 @@ def sc_panel(sc_id):
         ),
     ]
 
-    return ui.nav_panel(f"SC {sc_id}", elementos, value = f"{sc_id}")
+    return ui.nav_panel(f"SC {sc_id}", elementos)
 
 def capa_panel(sc_id, capa_id):
     return ui.accordion_panel(
@@ -126,6 +125,5 @@ def capa_panel(sc_id, capa_id):
             value=0.1,
             step=0.01,
             min=0.01,
-        ),
-        value = f"capa_{sc_id}_{capa_id}"
+        )
     )

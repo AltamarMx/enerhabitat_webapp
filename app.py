@@ -89,7 +89,7 @@ def server(input, output, session):
     # ui de cada panel de SC
     @output
     @render.ui
-    def ui_sc_panels():
+    def sc_panels():
         num_sc = input.num_sc()
 
         # Mantener la pestaña actualmente seleccionada, siempre que exista
@@ -106,24 +106,7 @@ def server(input, output, session):
 
         paneles = [sc_panel(sc_id) for sc_id in range(1, num_sc + 1)]
 
-        return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=selected)
-    
-    #Nombre de capa
-    @reactive.Effect
-    def _nombres():
-
-        sc_id = input.sc_seleccionado()
-#        with reactive.isolate():        
-        capa_seleccionada = input[f"capas_accordion_{sc_id}"]()[0]
-        
-        capa_id= capa_seleccionada[-1:]
-        
-        material, ancho = valoresCapa(sc_id, capa_id)
-        
-        ui.update_accordion_panel(
-            id = f"capas_accordion_{sc_id}",
-            target=f"capa_{sc_id}_{capa_id}",
-            title= f"{material}: {ancho}m")
+        return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"SC {num_sc}")
     
     # Agregar capas
     add_counts = reactive.Value({})
@@ -159,7 +142,7 @@ def server(input, output, session):
                 )
                 ui.update_accordion(
                     id=f"capas_accordion_{sc_id}",
-                    show=f"capa_{sc_id}_{siguiente}"
+                    show=f"Capa {siguiente}"
                 )
             
             # guardo el contador para la próxima ejecución
@@ -199,11 +182,11 @@ def server(input, output, session):
                 # Elimino el panel del acoredeon y muestro el anterior
                 ui.update_accordion(
                     id=f"capas_accordion_{sc_id}",
-                    show=f"capa_{sc_id}_{eliminado-1}"
+                    show=f"Capa {eliminado-1}"
                 )
                 ui.remove_accordion_panel(
                     id=f"capas_accordion_{sc_id}",
-                    target=f"capa_{sc_id}_{eliminado}"
+                    target=f"Capa {eliminado}",
                 )
                 
             # guardo el contador para la próxima ejecución
@@ -213,13 +196,10 @@ def server(input, output, session):
         rmv_counts.set(prev_counts)
 
     #   << Funciones auxiliares >>
-    def valoresCapa(sc_id, capa_id):
-        return (input[f"material_capa_{sc_id}_{capa_id}"](), input[f"ancho_capa_{sc_id}_{capa_id}"]())        
-    
     # Regresa lista de tuplas para el sc_id
     def sistemaConstructivo(sc_id):
         return [
-            valoresCapa(sc_id, i)
+            (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
             for i in capas_activas().get(sc_id)
         ]
 
