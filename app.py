@@ -40,8 +40,9 @@ app_ui = ui.page_fluid(
         ),
         ui.nav_panel(
             "Datos resultados",
+            ui.output_ui("res_msg"),
             ui.output_data_frame("sol_df"),
-            ui.download_button("down_res", "Descargar datos", width="100%")
+            ui.output_ui("down_res_ui"),
         ),
         title="EnerHabitat",
         id="nav_bar",
@@ -338,6 +339,19 @@ def server(input, output, session):
         return None
 
     #   << DataFrames >>
+    @output
+    @render.ui
+    def res_msg():
+        if soluciones_dataframe.get().empty:
+            return ui.p("Aún no hay datos que descargar")
+        return None
+
+    @output
+    @render.ui
+    def down_res_ui():
+        disabled = soluciones_dataframe.get().empty
+        return ui.download_button("down_res", "Descargar datos", width="100%", disabled=disabled)
+
     @render.data_frame
     def sol_df():
         datos = soluciones_dataframe.get().copy()
