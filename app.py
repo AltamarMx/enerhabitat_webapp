@@ -57,6 +57,8 @@ def server(input, output, session):
 
     # Diccionario para mantener el registro de capas por cada sistema constructivo
     capas_activas = reactive.Value({1: [1]})  # {sc_id : [capas]}
+    # Estado global para valores de cada sistema constructivo
+    sc_state = reactive.Value({})
     
     """
     ==================================================
@@ -68,23 +70,34 @@ def server(input, output, session):
     def _():
         num_sc = input.num_sc()
         current_capas = capas_activas.get().copy()
+        state = sc_state.get().copy()
 
-        updated = False
+        updated_capas = False
+        updated_state = False
+
         # Asegurar que tenemos entradas para todos los SC
         for sc_id in range(1, num_sc + 1):
             if sc_id not in current_capas:
                 current_capas[sc_id] = [1]
-                updated = True
+                updated_capas = True
+            if sc_id not in state:
+                state[sc_id] = {"absortancia": 0.8, "capas": {1: {"material": None, "ancho": 0.1}}}
+                updated_state = True
 
         # Eliminar SC que ya no existen
         to_remove = [sc_id for sc_id in list(current_capas.keys()) if sc_id > num_sc]
         if to_remove:
             for sc_id in to_remove:
                 del current_capas[sc_id]
-            updated = True
+                if sc_id in state:
+                    del state[sc_id]
+            updated_capas = True
+            updated_state = True
 
-        if updated:
+        if updated_capas:
             capas_activas.set(current_capas)
+        if updated_state:
+            sc_state.set(state)
             
     # ui de cada panel de SC
     @output
@@ -104,7 +117,7 @@ def server(input, output, session):
         else:
             selected = str(num_sc)
 
-        paneles = [sc_panel(sc_id) for sc_id in range(1, num_sc + 1)]
+        paneles = [sc_panel(sc_id, sc_state.get()) for sc_id in range(1, num_sc + 1)]
 
         return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"SC {num_sc}")
     
@@ -138,7 +151,7 @@ def server(input, output, session):
                 # Agrego el panel al acoredeon y lo muestro
                 ui.insert_accordion_panel(
                     id=f"capas_accordion_{sc_id}",
-                    panel=capa_panel(sc_id, siguiente),
+                    panel=capa_panel(sc_id, siguiente, sc_state.get()),
                 )
                 ui.update_accordion(
                     id=f"capas_accordion_{sc_id}",
@@ -194,6 +207,43 @@ def server(input, output, session):
             
         # Grabo de nuevo el diccionario completo
         rmv_counts.set(prev_counts)
+
+    # Mantener sincronizado el estado guardado con los valores de entrada
+    @reactive.Effect
+    def _sync_state():
+        current_capas = capas_activas.get()
+        state = {}
+        for sc_id, capas in current_capas.items():
+            absort = input[f"absortancia_{sc_id}"]()
+            capas_dict = {}
+            for c_id in capas:
+                capas_dict[c_id] = {
+                    "material": input[f"material_capa_{sc_id}_{c_id}"](),
+                    "ancho": input[f"ancho_capa_{sc_id}_{c_id}"](),
+                }
+            state[sc_id] = {"absortancia": absort, "capas": capas_dict}
+
+        sc_state.set(state)
+
+    # Restaurar valores almacenados cuando cambie la UI
+    @reactive.Effect
+    def _restore_inputs():
+        state = sc_state.get()
+        capas = capas_activas.get()
+        reactive.flush()
+        for sc_id, lista_capas in capas.items():
+            sc_info = state.get(sc_id, {})
+            ui.update_numeric(f"absortancia_{sc_id}", value=sc_info.get("absortancia", 0.8))
+            capas_info = sc_info.get("capas", {})
+            for c_id in lista_capas:
+                capa_info = capas_info.get(c_id, {})
+                ui.update_select(
+                    f"material_capa_{sc_id}_{c_id}",
+                    selected=capa_info.get("material"),
+                )
+                ui.update_numeric(
+                    f"ancho_capa_{sc_id}_{c_id}", value=capa_info.get("ancho", 0.1)
+                )
 
     #   << Funciones auxiliares >>
     # Regresa lista de tuplas para el sc_id

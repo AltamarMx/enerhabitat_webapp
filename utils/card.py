@@ -77,12 +77,25 @@ def side_card():
         ),
     ]
 
-def sc_panel(sc_id):
+def sc_panel(sc_id, estado):
+    """Genera el panel para un sistema constructivo.
+
+    Parameters
+    ----------
+    sc_id: int
+        Identificador del sistema constructivo.
+    estado: dict
+        Estado actual de los SC guardado en ``sc_state``.
+    """
+
+    sc_info = estado.get(sc_id, {}) if estado else {}
+    capas_info = sc_info.get("capas", {})
+
     elementos = [
         ui.input_numeric(
             f"absortancia_{sc_id}",
             "Absortancia:",
-            value=0.8,
+            value=sc_info.get("absortancia", 0.8),
             min=0,
             max=1,
             step=0.01,
@@ -90,40 +103,50 @@ def sc_panel(sc_id):
         ),
         ui.h5("Capas:"),
         ui.accordion(
-            capa_panel(sc_id, 1),
+            *[
+                capa_panel(sc_id, capa_id, estado)
+                for capa_id in (capas_info.keys() or [1])
+            ],
             id=f"capas_accordion_{sc_id}",
-            open=f"Capa 1"
+            open=f"Capa 1",
         ),
         ui.layout_column_wrap(
             ui.input_action_button(
                 f"remove_capa_{sc_id}",
                 "🞬",
-                # width="100%",
                 class_="btn-danger",
             ),
             ui.input_task_button(
                 f"add_capa_{sc_id}",
                 "✚",
-                # width="100%",
                 class_="btn-primary",
             ),
-            width=1/2
+            width=1/2,
         ),
     ]
 
     return ui.nav_panel(f"SC {sc_id}", elementos)
 
-def capa_panel(sc_id, capa_id):
+
+def capa_panel(sc_id, capa_id, estado):
+    """Panel de una capa específica."""
+    capa_info = (
+        estado.get(sc_id, {}).get("capas", {}).get(capa_id, {}) if estado else {}
+    )
+
     return ui.accordion_panel(
         f"Capa {capa_id}",
         ui.input_select(
-            f"material_capa_{sc_id}_{capa_id}", "Material:", materiales
+            f"material_capa_{sc_id}_{capa_id}",
+            "Material:",
+            materiales,
+            selected=capa_info.get("material"),
         ),
         ui.input_numeric(
             f"ancho_capa_{sc_id}_{capa_id}",
             "Ancho (m):",
-            value=0.1,
+            value=capa_info.get("ancho", 0.1),
             step=0.01,
             min=0.01,
-        )
+        ),
     )
