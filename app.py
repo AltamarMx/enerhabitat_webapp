@@ -42,7 +42,7 @@ app_ui = ui.page_fluid(
             "Datos resultados",
             ui.output_ui("res_msg"),
             ui.output_data_frame("sol_df"),
-            ui.output_ui("down_res_ui"),
+            ui.download_button("down_res", "Descargar datos", width="100%"),
         ),
         title="EnerHabitat",
         id="nav_bar",
@@ -368,11 +368,10 @@ def server(input, output, session):
             return ui.p("Aún no hay datos que descargar")
         return None
 
-    @output
-    @render.ui
-    def down_res_ui():
-        disabled = soluciones_dataframe.get().empty
-        return ui.download_button("down_res", "Descargar datos", width="100%", disabled=disabled)
+    @reactive.Effect
+    def _update_down_res_button():
+        df = soluciones_dataframe.get()
+        ui.update_download_button("down_res", disabled=df.empty)
 
     @render.data_frame
     def sol_df():
