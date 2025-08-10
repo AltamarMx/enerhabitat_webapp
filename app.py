@@ -90,7 +90,6 @@ def server(input, output, session):
     @output
     @render.ui
     def sc_panels():
-    def sc_panels():
         num_sc = input.num_sc()
 
         # Mantener la pestaña actualmente seleccionada, siempre que exista
