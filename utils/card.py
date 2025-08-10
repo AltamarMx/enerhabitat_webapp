@@ -109,6 +109,7 @@ def sc_panel(sc_id, estado):
             ],
             id=f"capas_accordion_{sc_id}",
             open=f"Capa 1",
+            multiple=False,
         ),
         ui.layout_column_wrap(
             ui.input_action_button(

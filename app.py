@@ -234,7 +234,10 @@ def server(input, output, session):
         reactive.flush()
         for sc_id, lista_capas in capas.items():
             sc_info = state.get(sc_id, {})
-            ui.update_numeric(f"absortancia_{sc_id}", value=sc_info.get("absortancia", 0.8))
+            open_panel = input[f"capas_accordion_{sc_id}"]()
+            ui.update_numeric(
+                f"absortancia_{sc_id}", value=sc_info.get("absortancia", 0.8)
+            )
             capas_info = sc_info.get("capas", {})
             for c_id in lista_capas:
                 capa_info = capas_info.get(c_id, {})
@@ -245,6 +248,9 @@ def server(input, output, session):
                 ui.update_numeric(
                     f"ancho_capa_{sc_id}_{c_id}", value=capa_info.get("ancho", 0.1)
                 )
+            ui.update_accordion(
+                id=f"capas_accordion_{sc_id}", show=open_panel
+            )
 
     #   << Funciones auxiliares >>
     # Regresa lista de tuplas para el sc_id
