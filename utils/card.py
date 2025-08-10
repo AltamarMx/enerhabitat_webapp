@@ -128,14 +128,24 @@ def sc_panel(sc_id, estado):
     return ui.nav_panel(f"SC {sc_id}", elementos)
 
 
+def capa_title(capa_id, material=None, ancho=None):
+    """Genera el título de la capa con los datos disponibles."""
+    if material and ancho is not None:
+        return f"Capa {capa_id} - {material} ({ancho} m)"
+    return f"Capa {capa_id}"
+
+
 def capa_panel(sc_id, capa_id, estado):
     """Panel de una capa específica."""
     capa_info = (
         estado.get(sc_id, {}).get("capas", {}).get(capa_id, {}) if estado else {}
     )
+    titulo = capa_title(
+        capa_id, capa_info.get("material"), capa_info.get("ancho")
+    )
 
     return ui.accordion_panel(
-        f"Capa {capa_id}",
+        titulo,
         ui.input_select(
             f"material_capa_{sc_id}_{capa_id}",
             "Material:",
