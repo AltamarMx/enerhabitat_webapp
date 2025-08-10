@@ -9,7 +9,7 @@ from io import StringIO
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
 
-from utils.card import side_card, sc_panel, capa_panel, PRECARGADOS_DIR
+from utils.card import side_card, sc_panel, capa_panel, capa_title, PRECARGADOS_DIR
 
 
 app_ui = ui.page_fluid(
@@ -244,6 +244,22 @@ def server(input, output, session):
                 )
                 ui.update_numeric(
                     f"ancho_capa_{sc_id}_{c_id}", value=capa_info.get("ancho", 0.1)
+                )
+
+    # Actualizar títulos de las capas cuando cambien sus datos
+    @reactive.Effect
+    def _update_capa_titles():
+        capas = capas_activas.get()
+        for sc_id, lista_capas in capas.items():
+            for c_id in lista_capas:
+                material = input[f"material_capa_{sc_id}_{c_id}"]()
+                ancho = input[f"ancho_capa_{sc_id}_{c_id}"]()
+                titulo = capa_title(c_id, material, ancho)
+                ui.update_accordion_panel(
+                    id=f"capas_accordion_{sc_id}",
+                    target=f"Capa {c_id}",
+                    title=titulo,
+                    value=f"Capa {c_id}",
                 )
 
     #   << Funciones auxiliares >>
