@@ -12,6 +12,30 @@ from shinywidgets import output_widget, render_widget
 from utils.card import side_card, sc_panel, capa_panel, capa_title, PRECARGADOS_DIR
 
 
+def render_dataframe(df: pd.DataFrame | None):
+    """Construye un ``DataGrid`` a partir de un ``DataFrame``.
+
+    Inserta la columna ``Time`` al inicio con el índice del ``DataFrame`` y
+    regresa un ``render.DataGrid`` con un mensaje de resumen. Si el
+    ``DataFrame`` está vacío o es ``None`` se retorna ``None``.
+
+    Parameters
+    ----------
+    df:
+        ``DataFrame`` a mostrar.
+    """
+
+    if df is None or df.empty:
+        return None
+
+    display_df = df.copy()
+    display_df.insert(0, "Time", display_df.index)
+
+    return render.DataGrid(
+        display_df, summary="Viendo filas {start} a {end} de {total}"
+    )
+
+
 app_ui = ui.page_fluid(
     ui.modal(
         "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",
@@ -375,22 +399,11 @@ def server(input, output, session):
 
     @render.data_frame
     def sol_df():
-        datos = soluciones_dataframe.get().copy()
-        datos.insert(0, "Time", datos.index)
-        if not datos.empty:
-            return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
-        else:
-            return None
+        return render_dataframe(soluciones_dataframe.get())
 
     @render.data_frame
     def dia_df():
-        datos = dia_promedio_dataframe.get()
-        if not datos.empty:
-            display_df = datos.copy()
-            display_df.insert(0, "Time", datos.index)
-            return render.DataGrid(
-                display_df, summary="Viendo filas {start} a {end} de {total}"
-            )
+        return render_dataframe(dia_promedio_dataframe.get())
 
     #   << Gráficas >>
     # Temperaturas
