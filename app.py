@@ -231,10 +231,9 @@ def server(input, output, session):
     def _restore_inputs():
         state = sc_state.get()
         capas = capas_activas.get()
-        reactive.flush()
         for sc_id, lista_capas in capas.items():
             sc_info = state.get(sc_id, {})
-            open_panel = input[f"capas_accordion_{sc_id}"]()
+            
             ui.update_numeric(
                 f"absortancia_{sc_id}", value=sc_info.get("absortancia", 0.8)
             )
@@ -248,9 +247,12 @@ def server(input, output, session):
                 ui.update_numeric(
                     f"ancho_capa_{sc_id}_{c_id}", value=capa_info.get("ancho", 0.1)
                 )
-            ui.update_accordion(
-                id=f"capas_accordion_{sc_id}", show=open_panel
-            )
+            try:
+                open_panel = str(input[f"capas_accordion_{sc_id}"]()[0])
+                ui.update_accordion(
+                    id=f"capas_accordion_{sc_id}", show=open_panel)
+            except: 
+                return
 
     # Actualizar títulos de las capas cuando cambien sus datos
     @reactive.Effect
@@ -361,17 +363,6 @@ def server(input, output, session):
         return None
 
     #   << DataFrames >>
-    @output
-    @render.ui
-    def res_msg():
-        if soluciones_dataframe.get().empty:
-            return ui.p("Aún no hay datos que descargar")
-        return None
-
-    @reactive.Effect
-    def _update_down_res_button():
-        df = soluciones_dataframe.get()
-        ui.update_download_button("down_res", disabled=df.empty)
 
     @render.data_frame
     def sol_df():
@@ -492,6 +483,21 @@ def server(input, output, session):
         buffer.seek(0)
         return buffer
 
+    @output
+    @render.ui
+    def res_msg():
+        if soluciones_dataframe.get().empty:
+            return ui.p("Aún no hay datos que descargar")
+        return None
+        
+    @output
+    @render.ui
+    def down_res_ui():
+        if soluciones_dataframe.get().empty:
+            return None
+        else:
+            return ui.download_button("down_res", "Descargar datos", width="100%")
+    
     @render.download(filename=lambda: f"enerhabitat-{date.today().isoformat()}.csv")
     def down_res():
         down_data = soluciones_dataframe.get()
