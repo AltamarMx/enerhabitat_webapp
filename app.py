@@ -12,6 +12,30 @@ from shinywidgets import output_widget, render_widget
 from utils.card import side_card, sc_panel, capa_panel, capa_title, PRECARGADOS_DIR
 
 
+def render_dataframe(df: pd.DataFrame | None):
+    """Construye un ``DataGrid`` a partir de un ``DataFrame``.
+
+    Inserta la columna ``Time`` al inicio con el índice del ``DataFrame`` y
+    regresa un ``render.DataGrid`` con un mensaje de resumen. Si el
+    ``DataFrame`` está vacío o es ``None`` se retorna ``None``.
+
+    Parameters
+    ----------
+    df:
+        ``DataFrame`` a mostrar.
+    """
+
+    if df is None or df.empty:
+        return None
+
+    display_df = df.copy()
+    display_df.insert(0, "Time", display_df.index)
+
+    return render.DataGrid(
+        display_df, summary="Viendo filas {start} a {end} de {total}"
+    )
+
+
 app_ui = ui.page_fluid(
     ui.modal(
         "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",
@@ -122,92 +146,64 @@ def server(input, output, session):
 
         return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"SC {num_sc}")
     
-    # Agregar capas
-    add_counts = reactive.Value({})
-    @reactive.Effect
-    def _add_capa():
-        # Lee AISLADAMENTE el estado actual de las capas
+    # Contadores y modificación de capas
+    capa_counts = {"add": reactive.Value({}), "remove": reactive.Value({})}
+
+    def modify_capa(sc_id, cnt, action):
+        """Agregar o remover capas según la acción indicada."""
         with reactive.isolate():
             current_capas = capas_activas.get().copy()
 
-        # Recupero los contadores previos
-        prev_counts = add_counts.get()
+        counts = capa_counts[action]
+        prev_counts = counts.get()
+        capas = current_capas.get(sc_id, [])
 
-        # Recorro cada sistema constructivo
-        for sc_id, capas in current_capas.items():
-            
-            # número de veces que se ha pulsado AHORA
-            cnt = input[f"add_capa_{sc_id}"]()
-                 
-            # si ha aumentado desde la última vez
-            if cnt > prev_counts.get(sc_id, 0):
-                
-                # construyo el nuevo estado
+        if cnt > prev_counts.get(sc_id, 0):
+            if action == "add":
                 siguiente = max(capas) + 1
                 nueva = {**current_capas, sc_id: capas + [siguiente]}
-                
-                # actualizo el estado de capas
                 capas_activas.set(nueva)
-                
-                # Agrego el panel al acoredeon y lo muestro
                 ui.insert_accordion_panel(
                     id=f"capas_accordion_{sc_id}",
                     panel=capa_panel(sc_id, siguiente, sc_state.get()),
                 )
                 ui.update_accordion(
                     id=f"capas_accordion_{sc_id}",
-                    show=f"Capa {siguiente}"
+                    show=f"Capa {siguiente}",
                 )
-            
-            # guardo el contador para la próxima ejecución
-            prev_counts[sc_id] = cnt
-            
-        # Grabo de nuevo el diccionario completo
-        add_counts.set(prev_counts)
-
-    # Eliminar capas
-    rmv_counts = reactive.Value({}) # {sc_id : rmv_cnt}}
-    @reactive.Effect
-    def _remove_capa():
-        
-        # Lee AISLADAMENTE el estado actual de las capas
-        with reactive.isolate():
-            current_capas = capas_activas.get().copy()
-
-        # Recupero los contadores previos
-        prev_counts = rmv_counts.get()
-
-        # Recorro cada sistema constructivo
-        for sc_id, capas in current_capas.items():
-            btn_id = f"remove_capa_{sc_id}"
-            
-            # número de veces que se ha pulsado AHORA
-            cnt = input[btn_id]()
-            
-            # si ha aumentado desde la última vez
-            if cnt > prev_counts.get(sc_id, 0) and len(capas)>1:
-                # construyo el nuevo estado
+            elif action == "remove" and len(capas) > 1:
                 eliminado = capas.pop()
                 nueva = {**current_capas, sc_id: capas}
-                
-                # actualizo el estado de capas
                 capas_activas.set(nueva)
-                
-                # Elimino el panel del acoredeon y muestro el anterior
                 ui.update_accordion(
                     id=f"capas_accordion_{sc_id}",
-                    show=f"Capa {eliminado-1}"
+                    show=f"Capa {eliminado-1}",
                 )
                 ui.remove_accordion_panel(
                     id=f"capas_accordion_{sc_id}",
                     target=f"Capa {eliminado}",
                 )
-                
-            # guardo el contador para la próxima ejecución
-            prev_counts[sc_id] = cnt
-            
-        # Grabo de nuevo el diccionario completo
-        rmv_counts.set(prev_counts)
+
+        prev_counts[sc_id] = cnt
+        counts.set(prev_counts)
+
+    # Agregar capas
+    @reactive.Effect
+    def _add_capa():
+        with reactive.isolate():
+            sc_ids = list(capas_activas.get().keys())
+        for sc_id in sc_ids:
+            cnt = input[f"add_capa_{sc_id}"]()
+            modify_capa(sc_id, cnt, "add")
+
+    # Eliminar capas
+    @reactive.Effect
+    def _remove_capa():
+        with reactive.isolate():
+            sc_ids = list(capas_activas.get().keys())
+        for sc_id in sc_ids:
+            cnt = input[f"remove_capa_{sc_id}"]()
+            modify_capa(sc_id, cnt, "remove")
 
     # Mantener sincronizado el estado guardado con los valores de entrada
     @reactive.Effect
@@ -366,22 +362,11 @@ def server(input, output, session):
 
     @render.data_frame
     def sol_df():
-        datos = soluciones_dataframe.get().copy()
-        datos.insert(0, "Time", datos.index)
-        if not datos.empty:
-            return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
-        else:
-            return None
+        return render_dataframe(soluciones_dataframe.get())
 
     @render.data_frame
     def dia_df():
-        datos = dia_promedio_dataframe.get()
-        if not datos.empty:
-            display_df = datos.copy()
-            display_df.insert(0, "Time", datos.index)
-            return render.DataGrid(
-                display_df, summary="Viendo filas {start} a {end} de {total}"
-            )
+        return render_dataframe(dia_promedio_dataframe.get())
 
     #   << Gráficas >>
     # Temperaturas
