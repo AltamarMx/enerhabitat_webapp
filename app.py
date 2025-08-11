@@ -11,31 +11,6 @@ from shinywidgets import output_widget, render_widget
 
 from utils.card import side_card, sc_panel, capa_panel, capa_title, PRECARGADOS_DIR
 
-
-def render_dataframe(df: pd.DataFrame | None):
-    """Construye un ``DataGrid`` a partir de un ``DataFrame``.
-
-    Inserta la columna ``Time`` al inicio con el índice del ``DataFrame`` y
-    regresa un ``render.DataGrid`` con un mensaje de resumen. Si el
-    ``DataFrame`` está vacío o es ``None`` se retorna ``None``.
-
-    Parameters
-    ----------
-    df:
-        ``DataFrame`` a mostrar.
-    """
-
-    if df is None or df.empty:
-        return None
-
-    display_df = df.copy()
-    display_df.insert(0, "Time", display_df.index)
-
-    return render.DataGrid(
-        display_df, summary="Viendo filas {start} a {end} de {total}"
-    )
-
-
 app_ui = ui.page_fluid(
     ui.modal(
         "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",
@@ -131,6 +106,7 @@ def server(input, output, session):
         num_sc = input.num_sc()
 
         # Mantener la pestaña actualmente seleccionada, siempre que exista
+        """
         selected = input.sc_seleccionado() if "sc_seleccionado" in input else None
         if selected is not None:
             try:
@@ -141,6 +117,7 @@ def server(input, output, session):
                 selected = str(num_sc)
         else:
             selected = str(num_sc)
+        """
 
         paneles = [sc_panel(sc_id, sc_state.get()) for sc_id in range(1, num_sc + 1)]
 
@@ -359,7 +336,29 @@ def server(input, output, session):
         return None
 
     #   << DataFrames >>
+    def render_dataframe(df: pd.DataFrame = None):
+        """Construye un ``DataGrid`` a partir de un ``DataFrame``.
 
+        Inserta la columna ``Time`` al inicio con el índice del ``DataFrame`` y
+        regresa un ``render.DataGrid`` con un mensaje de resumen. Si el
+        ``DataFrame`` está vacío o es ``None`` se retorna ``None``.
+
+        Parameters
+        ----------
+        df:
+            ``DataFrame`` a mostrar.
+        """
+
+        if df is None or df.empty:
+            return None
+
+        display_df = df.copy()
+        display_df.insert(0, "Time", display_df.index)
+
+        return render.DataGrid(
+            display_df, summary="Viendo filas {start} a {end} de {total}"
+        )
+    
     @render.data_frame
     def sol_df():
         return render_dataframe(soluciones_dataframe.get())
