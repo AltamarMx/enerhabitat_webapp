@@ -2,8 +2,33 @@ from shiny import ui, render, reactive
 import enerhabitat as eh
 import pandas as pd
 
+def init_sistemas(max_sc: int, max_capas: int) -> dict:
+    """Create base dictionary for all constructive systems.
 
-def sc_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe, sistemas):
+    Each system contains default solar absorptance and a pool of layers with
+    placeholder values. Active layers are tracked per system through the
+    ``capas_activas`` list, which starts with only the first layer enabled.
+
+    Parameters
+    ----------
+    max_sc:
+        Maximum number of constructive systems to initialise.
+    max_capas:
+        Maximum number of layers available for each system.
+    """
+    sistemas: dict[int, dict] = {}
+    for sc_id in range(1, max_sc + 1):
+        sistemas[sc_id] = {
+            "absortancia": 0.8,
+            "capas_activas": [1],
+            "capas": {
+                capa_id: {"material": None, "ancho": None}
+                for capa_id in range(1, max_capas + 1)
+            },
+        }
+    return sistemas
+
+def sc_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe, capas_activas):
     
     """
     ==================================================
