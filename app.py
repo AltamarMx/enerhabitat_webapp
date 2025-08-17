@@ -10,8 +10,11 @@ from utils.capa_utils import capa_server
 from utils.download import download_server
 from utils.epw_handler import epw_server
 from utils.reactive_handler import reactive_server
-from utils.sc_utils import sc_server
+from utils.sc_utils import sc_server, init_sistemas
 from utils.ui import ui_server
+
+MAX_SISTEMA = 5
+MAX_CAPA = 10
 
 app_ui = ui.page_fluid(
     ui.modal(
@@ -57,25 +60,19 @@ def server(input, output, session):
     soluciones_dataframe = reactive.Value(pd.DataFrame())
     current_file = reactive.Value(None)
 
-    # Diccionario para mantener el registro de capas por cada sistema constructivo
-    capas_activas = reactive.Value({1: [1]})  # {sc_id : [capas]}    
-    # Estado global para valores de cada sistema constructivo
-    sc_state = reactive.Value({})
-    
-    card_server(input, output, session, capas_activas,  sc_state)
-    capa_server(input, output, session, capas_activas, sc_state)
+    # Diccionario global con los sistemas constructivos y sus capas
+    sistemas = reactive.Value(init_sistemas(MAX_SISTEMA, MAX_CAPA))
+
+    card_server(input, output, session, sistemas)
+    capa_server(input, output, session, sistemas)
     download_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe)
     epw_server(input, output, session, current_file)
-    reactive_server(input, output, session, current_file, dia_promedio_dataframe, sc_state, capas_activas)
-    sc_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe, capas_activas)
+    reactive_server(input, output, session, current_file, dia_promedio_dataframe, sistemas)
+    sc_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe, sistemas)    
     ui_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe)
     
     
     """
-    ==================================================
-                Lo que a veces NO funciona
-    ==================================================
-    
     def subIndex(cadena):
         # Convertir numeros a subindice
         SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")

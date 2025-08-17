@@ -1,5 +1,6 @@
 from shiny import ui, render, reactive
 import pandas as pd
+from shiny import ui, reactive
 
 def capa_server(input, output, session, capas_activas, sc_state):
     # Mantener sincronizado el estado guardado con los valores de entrada
