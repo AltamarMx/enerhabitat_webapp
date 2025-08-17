@@ -2,7 +2,8 @@ from shiny import ui, render, reactive
 import enerhabitat as eh
 import pandas as pd
 
-def sc_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe, capas_activas):
+
+def sc_server(input, output, session, dia_promedio_dataframe, soluciones_dataframe, sistemas):
     
     """
     ==================================================
@@ -12,9 +13,11 @@ def sc_server(input, output, session, dia_promedio_dataframe, soluciones_datafra
     #   << Funciones auxiliares >>
     # Regresa lista de tuplas para el sc_id
     def sistemaConstructivo(sc_id):
+        sc_info = sistemas.get().get(sc_id, {})
+        capas_ids = sc_info.get("capas_activas", [])
         return [
             (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
-            for i in capas_activas().get(sc_id)
+            for i in capas_ids
         ]
     
     # Resolver sistemas constructivos
@@ -57,3 +60,4 @@ def sc_server(input, output, session, dia_promedio_dataframe, soluciones_datafra
         if sol_data_list:
             resultado = pd.concat(sol_data_list, axis=1)
             soluciones_dataframe.set(resultado)
+
