@@ -3,7 +3,7 @@ import enerhabitat as eh
 import os
 
 MAX_CAPAS = 10  # Número máximo de capas por sistema constructivo
-MAX_SC = 10  # Número máximo de sistemas constructivos
+MAX_SC = 5  # Número máximo de sistemas constructivos
 
 PRECARGADOS_DIR = "./epw/"
 

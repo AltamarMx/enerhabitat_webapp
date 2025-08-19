@@ -14,7 +14,7 @@ from utils.card import init_sistemas, side_card, sc_paneles, PRECARGADOS_DIR, MA
 
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, no es fiable usarla",
+        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla",
         title="EnerHabitat sigue en desarrollo",
         easy_close=True,
         footer=None,
@@ -109,6 +109,10 @@ def server(input, output, session):
             current[sc_id]["capas"][capa_id]["ancho"] = input[f"ancho_capa_{sc_id}_{capa_id}"]()
             updated = True
             
+        if input[f"absortancia_{sc_id}"]() != current[sc_id]["absortancia"]:
+            current[sc_id]["absortancia"] = input[f"absortancia_{sc_id}"]()
+            updated = True
+        
         if updated:
             sistemas.set(current)
 
