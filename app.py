@@ -9,7 +9,7 @@ from io import StringIO
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
 
-from utils.card import side_card, sc_panel, capa_panel, PRECARGADOS_DIR
+from utils.card import init_sistemas, side_card, sc_paneles, PRECARGADOS_DIR, MAX_CAPAS, MAX_SC
 
 
 app_ui = ui.page_fluid(
@@ -56,7 +56,9 @@ def server(input, output, session):
     current_file = reactive.Value(None)
 
     # Diccionario para mantener el registro de capas por cada sistema constructivo
-    capas_activas = reactive.Value({1: [1]})  # {sc_id : [capas]}
+    sistemas = reactive.Value(init_sistemas())  # {sc_id : [capas]}
+    
+    add_counts = reactive.Value({})
     
     """
     ==================================================
@@ -65,49 +67,60 @@ def server(input, output, session):
     """
     # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
-    def _():
-        num_sc = input.num_sc()
-        current_capas = capas_activas.get().copy()
+    def update_sistemas():
+
+        current_sistema = sistemas.get().copy()
 
         updated = False
+        
         # Asegurar que tenemos entradas para todos los SC
-        for sc_id in range(1, num_sc + 1):
-            if sc_id not in current_capas:
-                current_capas[sc_id] = [1]
-                updated = True
-
-        # Eliminar SC que ya no existen
-        to_remove = [sc_id for sc_id in list(current_capas.keys()) if sc_id > num_sc]
-        if to_remove:
-            for sc_id in to_remove:
-                del current_capas[sc_id]
-            updated = True
-
-        if updated:
-            capas_activas.set(current_capas)
+        for sc_id in range(1, MAX_SC + 1):
+            for capa_id in range(1, MAX_CAPAS + 1):
+                material_input = input[f"material_capa_{sc_id}_{capa_id}"]()
+                ancho_input = input[f"ancho_capa_{sc_id}_{capa_id}"]()
+                
+                material_sistema = current_sistema[sc_id]["capas"][capa_id]["material"]
+                ancho_sistema = current_sistema[sc_id]["capas"][capa_id]["ancho"]
+                
+                if material_input != material_sistema or ancho_input != ancho_sistema:
+                    current_sistema[sc_id]["capas"][capa_id]["material"] = material_input
+                    current_sistema[sc_id]["capas"][capa_id]["ancho"] = ancho_input
+                    updated = True
             
-    # ui de cada panel de SC
+        if updated:
+            sistemas.set(current_sistema)
+            
+    # ui del contenedor de sistemas constructivos
     @output
     @render.ui
-    def sc_panels():
+    def ui_sistemas():
         num_sc = input.num_sc()
 
-        # Mantener la pestaña actualmente seleccionada, siempre que exista
-        selected = input.sc_seleccionado() if "sc_seleccionado" in input else None
-        if selected is not None:
-            try:
-                sel_val = int(selected)
-                if sel_val > num_sc:
-                    selected = str(num_sc)
-            except Exception:
-                selected = str(num_sc)
-        else:
-            selected = str(num_sc)
-
-        paneles = [sc_panel(sc_id) for sc_id in range(1, num_sc + 1)]
+        paneles = sc_paneles(num_sc, sistemas.get())
 
         return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"SC {num_sc}")
     
+    @reactive.event(input.add_capa)
+    def _add_capa():   
+        sc_id = input.sc_seleccionado().replace("SC ", "")
+        sc_id = int(sc_id)
+        current_sistema = sistemas.get().copy()
+        
+        nuevas_capas_activas= current_sistema[sc_id]["capas_activas"] + 1
+        current_sistema[sc_id]["capas_activas"] = nuevas_capas_activas
+        sistemas.set(current_sistema)
+
+    @reactive.event(input.remove_capa)
+    def _remove_capa():
+        sc_id = input.sc_seleccionado().replace("SC ", "")
+        sc_id = int(sc_id)
+        current_sistema = sistemas.get().copy()
+        if current_sistema[sc_id]["capas_activas"] > 1:
+            nuevas_capas_activas = current_sistema[sc_id]["capas_activas"] - 1
+            current_sistema[sc_id]["capas_activas"] = nuevas_capas_activas
+            sistemas.set(current_sistema)
+            
+    """
     # Agregar capas
     add_counts = reactive.Value({})
     @reactive.Effect
@@ -194,13 +207,16 @@ def server(input, output, session):
             
         # Grabo de nuevo el diccionario completo
         rmv_counts.set(prev_counts)
+"""
 
     #   << Funciones auxiliares >>
     # Regresa lista de tuplas para el sc_id
     def sistemaConstructivo(sc_id):
+        capas = sistemas().get(sc_id)["capas"]
+        capas_activas = sistemas().get(sc_id)["capas_activas"]
         return [
-            (input[f"material_capa_{sc_id}_{i}"](), input[f"ancho_capa_{sc_id}_{i}"]())
-            for i in capas_activas().get(sc_id)
+            (capas[capa_id]["material"], capas[capa_id]["ancho"])
+            for capa_id in range(1, capas_activas+1)
         ]
 
     def subIndex(cadena):
