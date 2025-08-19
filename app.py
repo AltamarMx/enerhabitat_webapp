@@ -40,8 +40,8 @@ app_ui = ui.page_fluid(
         ),
         ui.nav_panel(
             "Datos resultados",
-            ui.output_data_frame("sol_df"),
-            ui.download_button("down_res", "Descargar datos", width="100%")
+            ui.output_ui("ui_datos_res"),
+            
         ),
         title="EnerHabitat",
         id="nav_bar",
@@ -69,6 +69,15 @@ def server(input, output, session):
                 Lo que a veces NO funciona
     ==================================================
     """
+    @output
+    @render.ui
+    def ui_datos_res():
+        if soluciones_dataframe.get().empty:
+            return ui.h3("Aún no hay resultados para mostrar...")
+        else:
+            return [ui.output_data_frame("sol_df"),
+            ui.download_button("down_res", "Descargar datos", width="100%")]
+
     # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
     def update_sistemas():
