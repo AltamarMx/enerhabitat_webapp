@@ -148,7 +148,7 @@ def sc_paneles(num_sc, sistemas):
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",
-                open=f"Capa 1",
+                open=f"Capa {capas_activas}",
                 multiple=False,
             ),
         ]

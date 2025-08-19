@@ -69,8 +69,10 @@ def server(input, output, session):
     @reactive.Effect
     def update_sistemas():
         sc_id = int(input.sc_seleccionado().replace("SC ", ""))
-        capa_id = int(input[f"capas_accordion_{sc_id}"]()[0].replace("Capa ", ""))
-        
+        paneles_abiertos = input[f"capas_accordion_{sc_id}"]()
+        if paneles_abiertos is None or len(paneles_abiertos) == 0:
+            return
+        capa_id = int(paneles_abiertos[0].replace("Capa ", ""))
         current = sistemas.get().copy()
 
         updated = False
@@ -122,95 +124,6 @@ def server(input, output, session):
             nuevas_capas_activas = current[sc_id]["capas_activas"] - 1
             current[sc_id]["capas_activas"] = nuevas_capas_activas
             sistemas.set(current)
-            
-    """
-    # Agregar capas
-    add_counts = reactive.Value({})
-    @reactive.Effect
-    def _add_capa():
-        # Lee AISLADAMENTE el estado actual de las capas
-        with reactive.isolate():
-            current_capas = capas_activas.get().copy()
-
-        # Recupero los contadores previos
-        prev_counts = add_counts.get()
-
-        # Recorro cada sistema constructivo
-        for sc_id, capas in current_capas.items():
-            
-            # número de veces que se ha pulsado AHORA
-            cnt = input[f"add_capa_{sc_id}"]()
-                 
-            # si ha aumentado desde la última vez
-            if cnt > prev_counts.get(sc_id, 0):
-                
-                # construyo el nuevo estado
-                siguiente = max(capas) + 1
-                nueva = {**current_capas, sc_id: capas + [siguiente]}
-                
-                # actualizo el estado de capas
-                capas_activas.set(nueva)
-                
-                # Agrego el panel al acoredeon y lo muestro
-                ui.insert_accordion_panel(
-                    id=f"capas_accordion_{sc_id}",
-                    panel=capa_panel(sc_id, siguiente),
-                )
-                ui.update_accordion(
-                    id=f"capas_accordion_{sc_id}",
-                    show=f"Capa {siguiente}"
-                )
-            
-            # guardo el contador para la próxima ejecución
-            prev_counts[sc_id] = cnt
-            
-        # Grabo de nuevo el diccionario completo
-        add_counts.set(prev_counts)
-
-    # Eliminar capas
-    rmv_counts = reactive.Value({}) # {sc_id : rmv_cnt}}
-    @reactive.Effect
-    def _remove_capa():
-        
-        # Lee AISLADAMENTE el estado actual de las capas
-        with reactive.isolate():
-            current_capas = capas_activas.get().copy()
-
-        # Recupero los contadores previos
-        prev_counts = rmv_counts.get()
-
-        # Recorro cada sistema constructivo
-        for sc_id, capas in current_capas.items():
-            btn_id = f"remove_capa_{sc_id}"
-            
-            # número de veces que se ha pulsado AHORA
-            cnt = input[btn_id]()
-            
-            # si ha aumentado desde la última vez
-            if cnt > prev_counts.get(sc_id, 0) and len(capas)>1:
-                # construyo el nuevo estado
-                eliminado = capas.pop()
-                nueva = {**current_capas, sc_id: capas}
-                
-                # actualizo el estado de capas
-                capas_activas.set(nueva)
-                
-                # Elimino el panel del acoredeon y muestro el anterior
-                ui.update_accordion(
-                    id=f"capas_accordion_{sc_id}",
-                    show=f"Capa {eliminado-1}"
-                )
-                ui.remove_accordion_panel(
-                    id=f"capas_accordion_{sc_id}",
-                    target=f"Capa {eliminado}",
-                )
-                
-            # guardo el contador para la próxima ejecución
-            prev_counts[sc_id] = cnt
-            
-        # Grabo de nuevo el diccionario completo
-        rmv_counts.set(prev_counts)
-"""
 
     #   << Funciones auxiliares >>
     # Regresa lista de tuplas para el sc_id
