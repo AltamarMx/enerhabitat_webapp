@@ -101,6 +101,7 @@ def server(input, output, session):
             selected= f"SC {num_sc}",
             )
     
+    @reactive.Effect
     @reactive.event(input.add_capa)
     def _add_capa():   
         sc_id = input.sc_seleccionado().replace("SC ", "")
@@ -111,6 +112,7 @@ def server(input, output, session):
             current[sc_id]["capas_activas"] += 1
             sistemas.set(current)
 
+    @reactive.Effect
     @reactive.event(input.remove_capa)
     def _remove_capa():
         sc_id = input.sc_seleccionado().replace("SC ", "")

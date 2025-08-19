@@ -103,7 +103,7 @@ def side_card():
                     # width="100%",
                     class_="btn-danger",
                 ),
-                ui.input_task_button(
+                ui.input_action_button(
                     f"add_capa",
                     "✚",
                     # width="100%",
