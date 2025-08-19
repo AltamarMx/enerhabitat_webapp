@@ -175,7 +175,7 @@ def capa_paneles(sc_id, capas_activas, capas):
         # Crear el panel para la capa
         panels.append(
             ui.accordion_panel(
-                f"{material} : {ancho} m",
+                f"{capa_id} - {material} {ancho} m",
                 ui.input_select(
                     f"material_capa_{sc_id}_{capa_id}", "Material:", materiales, selected=material
                 ),
