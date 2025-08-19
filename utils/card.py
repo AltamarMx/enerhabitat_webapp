@@ -53,7 +53,7 @@ def init_sistemas():
             "absortancia": 0.8,
             "capas_activas": 1,
             "capas": {
-                capa_id: {"material": None, "ancho": 0.1}
+                capa_id: {"material": "Adobe", "ancho": 0.1}
                 for capa_id in range(1, max_capas + 1)
             },
         }
@@ -175,7 +175,7 @@ def capa_paneles(sc_id, capas_activas, capas):
         # Crear el panel para la capa
         panels.append(
             ui.accordion_panel(
-                f"Capa {capa_id}",
+                f"{material} : {ancho} m",
                 ui.input_select(
                     f"material_capa_{sc_id}_{capa_id}", "Material:", materiales, selected=material
                 ),
@@ -186,6 +186,7 @@ def capa_paneles(sc_id, capas_activas, capas):
                     step=0.01,
                     min=0.01,
                 ),
+                value=f"capa_{capa_id}"
             )
         )
 

@@ -62,7 +62,7 @@ def server(input, output, session):
     #          capas: {capa_id: material, ancho}
     
     selected_sc = reactive.Value("SC 1")
-    open_layers = reactive.Value({i: "Capa 1" for i in range(1, MAX_SC + 1)})
+    open_layers = reactive.Value({i: "capa_1" for i in range(1, MAX_SC + 1)})
 
     """
     ==================================================
@@ -93,7 +93,7 @@ def server(input, output, session):
                 current_open[sc_id] = paneles_abiertos[0]
                 open_layers.set(current_open)
             
-        capa_id = int(current_open[sc_id].replace("Capa ", ""))
+        capa_id = int(current_open[sc_id].replace("capa_", ""))
         current = sistemas.get().copy()
 
         updated = False
