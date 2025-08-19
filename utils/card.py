@@ -94,7 +94,7 @@ def side_card():
         ),
         ui.card(
             ui.card_header("Sistemas constructivos"),
-            ui.input_numeric("num_sc", "Número de sistemas:", value=1, min=1, step=1),
+            ui.input_numeric("num_sc", "Número de sistemas:", value=1, min=1, max=MAX_SC, step=1),
             ui.output_ui("ui_sistemas"),
             ui.layout_column_wrap(
                 ui.input_action_button(
@@ -138,7 +138,7 @@ def sc_paneles(num_sc, sistemas):
             ui.input_numeric(
                 f"absortancia_{sc_id}",
                 "Absortancia:",
-                value=0.8,
+                value=sistemas[sc_id]["absortancia"],
                 min=0,
                 max=1,
                 step=0.01,
@@ -149,6 +149,7 @@ def sc_paneles(num_sc, sistemas):
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",
                 open=f"Capa 1",
+                multiple=False,
             ),
         ]
 

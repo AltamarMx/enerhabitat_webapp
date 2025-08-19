@@ -68,57 +68,58 @@ def server(input, output, session):
     # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
     def update_sistemas():
-
-        current_sistema = sistemas.get().copy()
+        sc_id = int(input.sc_seleccionado().replace("SC ", ""))
+        capa_id = int(input[f"capas_accordion_{sc_id}"]()[0].replace("Capa ", ""))
+        
+        current = sistemas.get().copy()
 
         updated = False
+            
+        material_sistema = current[sc_id]["capas"][capa_id]["material"]
+        ancho_sistema = current[sc_id]["capas"][capa_id]["ancho"]
+            
+        if input[f"material_capa_{sc_id}_{capa_id}"]() != material_sistema:
+            current[sc_id]["capas"][capa_id]["material"] = input[f"material_capa_{sc_id}_{capa_id}"]()
+            updated = True
         
-        # Asegurar que tenemos entradas para todos los SC
-        for sc_id in range(1, MAX_SC + 1):
-            for capa_id in range(1, MAX_CAPAS + 1):
-                material_input = input[f"material_capa_{sc_id}_{capa_id}"]()
-                ancho_input = input[f"ancho_capa_{sc_id}_{capa_id}"]()
-                
-                material_sistema = current_sistema[sc_id]["capas"][capa_id]["material"]
-                ancho_sistema = current_sistema[sc_id]["capas"][capa_id]["ancho"]
-                
-                if material_input != material_sistema or ancho_input != ancho_sistema:
-                    current_sistema[sc_id]["capas"][capa_id]["material"] = material_input
-                    current_sistema[sc_id]["capas"][capa_id]["ancho"] = ancho_input
-                    updated = True
+        if input[f"ancho_capa_{sc_id}_{capa_id}"]() != ancho_sistema:
+            current[sc_id]["capas"][capa_id]["ancho"] = input[f"ancho_capa_{sc_id}_{capa_id}"]()
+            updated = True
             
         if updated:
-            sistemas.set(current_sistema)
+            sistemas.set(current)
             
     # ui del contenedor de sistemas constructivos
     @output
     @render.ui
     def ui_sistemas():
         num_sc = input.num_sc()
-
-        paneles = sc_paneles(num_sc, sistemas.get())
-
-        return ui.navset_card_tab(*paneles, id="sc_seleccionado", selected=f"SC {num_sc}")
+    
+        return ui.navset_card_tab(
+            *sc_paneles(num_sc, sistemas.get()),
+            id="sc_seleccionado",
+            selected= f"SC {num_sc}",
+            )
     
     @reactive.event(input.add_capa)
     def _add_capa():   
         sc_id = input.sc_seleccionado().replace("SC ", "")
         sc_id = int(sc_id)
-        current_sistema = sistemas.get().copy()
+        current = sistemas.get().copy()
         
-        nuevas_capas_activas= current_sistema[sc_id]["capas_activas"] + 1
-        current_sistema[sc_id]["capas_activas"] = nuevas_capas_activas
-        sistemas.set(current_sistema)
+        if current[sc_id]["capas_activas"] < MAX_CAPAS:
+            current[sc_id]["capas_activas"] += 1
+            sistemas.set(current)
 
     @reactive.event(input.remove_capa)
     def _remove_capa():
         sc_id = input.sc_seleccionado().replace("SC ", "")
         sc_id = int(sc_id)
-        current_sistema = sistemas.get().copy()
-        if current_sistema[sc_id]["capas_activas"] > 1:
-            nuevas_capas_activas = current_sistema[sc_id]["capas_activas"] - 1
-            current_sistema[sc_id]["capas_activas"] = nuevas_capas_activas
-            sistemas.set(current_sistema)
+        current = sistemas.get().copy()
+        if current[sc_id]["capas_activas"] > 1:
+            nuevas_capas_activas = current[sc_id]["capas_activas"] - 1
+            current[sc_id]["capas_activas"] = nuevas_capas_activas
+            sistemas.set(current)
             
     """
     # Agregar capas
@@ -274,7 +275,7 @@ def server(input, output, session):
 
     # Manejo de EPW's
     @reactive.Effect
-    def _():
+    def epw_precargado():
         # Manejar selección de archivo precargado
         if input.selector_archivo().startswith("precargado_"):
             file_name = input.selector_archivo().replace("precargado_", "", 1)
@@ -283,14 +284,14 @@ def server(input, output, session):
 
     # Manejar archivo subido
     @reactive.Effect
-    def _():
+    def epw_upload():
         if input.selector_archivo() == "upload" and input.epw_file() is not None:
             file_info = input.epw_file()[0]
             current_file.set(file_info["datapath"])
 
     # Recalcular meanDay cuando cambie el EPW o el mes
     @reactive.Effect
-    def _():
+    def update_meanDay():
         if current_file.get() is not None:
             df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
             dia_promedio_dataframe.set(df)
