@@ -56,10 +56,13 @@ def server(input, output, session):
     current_file = reactive.Value(None)
 
     # Diccionario para mantener el registro de capas por cada sistema constructivo
-    sistemas = reactive.Value(init_sistemas())  # {sc_id : [capas]}
+    sistemas = reactive.Value(init_sistemas())  
+    # {sc_id : absortancia,
+    #          capas_activas,
+    #          capas: {capa_id: material, ancho}
     
-    add_counts = reactive.Value({})
-    
+    selected_sc = reactive.Value("SC 1")
+    open_layers = reactive.Value({})
     """
     ==================================================
                 Lo que a veces NO funciona
@@ -70,9 +73,16 @@ def server(input, output, session):
     def update_sistemas():
         sc_id = int(input.sc_seleccionado().replace("SC ", ""))
         paneles_abiertos = input[f"capas_accordion_{sc_id}"]()
+        current_open = open_layers.get().copy()
+        
         if paneles_abiertos is None or len(paneles_abiertos) == 0:
-            return
-        capa_id = int(paneles_abiertos[0].replace("Capa ", ""))
+            paneles_abiertos = current_open.get(sc_id)
+            
+        else:
+            current_open[sc_id] = paneles_abiertos[0]
+            open_layers.set(current_open)
+            
+        capa_id = int(current_open[sc_id].replace("Capa ", ""))
         current = sistemas.get().copy()
 
         updated = False
@@ -90,7 +100,16 @@ def server(input, output, session):
             
         if updated:
             sistemas.set(current)
-            
+
+    @reactive.Effect
+    def _sync_selected_sc():
+        selected_sc.set(input.sc_seleccionado())
+
+    @reactive.Effect
+    @reactive.event(input.num_sc)
+    def _jump_to_new_sc():
+        selected_sc.set(f"SC {input.num_sc()}")
+         
     # ui del contenedor de sistemas constructivos
     @output
     @render.ui
@@ -98,7 +117,7 @@ def server(input, output, session):
         num_sc = input.num_sc()
     
         return ui.navset_card_tab(
-            *sc_paneles(num_sc, sistemas.get()),
+            *sc_paneles(num_sc, sistemas.get(), open_layers.get()),
             id="sc_seleccionado",
             selected= f"SC {num_sc}",
             )

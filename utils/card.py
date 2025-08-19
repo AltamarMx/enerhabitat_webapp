@@ -122,7 +122,7 @@ def side_card():
     ]
 
 
-def sc_paneles(num_sc, sistemas):
+def sc_paneles(num_sc, sistemas, open_layers):
     """
     Crea una lista de paneles de sistemas constructivos para el navset_card_tab.
     """
@@ -148,7 +148,7 @@ def sc_paneles(num_sc, sistemas):
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",
-                open=f"Capa {capas_activas}",
+                open=open_layers.get(sc_id),
                 multiple=False,
             ),
         ]
