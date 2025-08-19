@@ -62,7 +62,8 @@ def server(input, output, session):
     #          capas: {capa_id: material, ancho}
     
     selected_sc = reactive.Value("SC 1")
-    open_layers = reactive.Value({})
+    open_layers = reactive.Value({i: "Capa 1" for i in range(1, MAX_SC + 1)})
+
     """
     ==================================================
                 Lo que a veces NO funciona
@@ -76,11 +77,12 @@ def server(input, output, session):
         current_open = open_layers.get().copy()
         
         if paneles_abiertos is None or len(paneles_abiertos) == 0:
-            paneles_abiertos = current_open.get(sc_id)
+            paneles_abiertos = current_open[sc_id]
             
         else:
-            current_open[sc_id] = paneles_abiertos[0]
-            open_layers.set(current_open)
+            if current_open[sc_id] != paneles_abiertos[0]:
+                current_open[sc_id] = paneles_abiertos[0]
+                open_layers.set(current_open)
             
         capa_id = int(current_open[sc_id].replace("Capa ", ""))
         current = sistemas.get().copy()
@@ -119,7 +121,7 @@ def server(input, output, session):
         return ui.navset_card_tab(
             *sc_paneles(num_sc, sistemas.get(), open_layers.get()),
             id="sc_seleccionado",
-            selected= f"SC {num_sc}",
+            selected=selected_sc.get(),
             )
     
     @reactive.Effect
