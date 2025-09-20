@@ -2,7 +2,7 @@ import plotly.express as px
 import enerhabitat as eh
 import pandas as pd
 import os
-
+eh.Nx = 10
 from datetime import date
 
 from shiny import App, ui, render, reactive
@@ -258,7 +258,7 @@ def server(input, output, session):
         datos = soluciones_dataframe.get().copy()
         datos.insert(0, "Time", datos.index)
         if not datos.empty:
-            return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
+            return render.DataGrid(datos.round(1), summary="Viendo filas {start} a {end} de {total}")
         else:
             return None
 
@@ -374,7 +374,7 @@ def server(input, output, session):
         if down_data is None or down_data.empty:
             return
         down_data.insert(0, "Time", down_data.index)
-        csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
+        csv_bytes = down_data.round(1).to_csv(index=False).encode("utf-8-sig")
         yield csv_bytes
 
    
