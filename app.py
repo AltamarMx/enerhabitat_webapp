@@ -4,7 +4,6 @@ import pandas as pd
 import os
 
 from datetime import date
-from io import StringIO
 
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
@@ -363,24 +362,20 @@ def server(input, output, session):
     @render.download(filename=lambda: f"enerhabitat-meanday-{date.today().isoformat()}.csv")
     def down_dia():
         down_data = dia_promedio_dataframe.get().copy()
-        if down_data == None:
+        if down_data is None or down_data.empty:
             return
         down_data.insert(0, "Time", down_data.index)
-        buffer = StringIO()
-        down_data.to_csv(buffer, index=False, encoding="utf-8-sig")
-        buffer.seek(0)
-        return buffer
+        csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
+        yield csv_bytes
 
     @render.download(filename=lambda: f"enerhabitat-{date.today().isoformat()}.csv")
     def down_res():
         down_data = soluciones_dataframe.get().copy()
-        if down_data == None:
+        if down_data is None or down_data.empty:
             return
         down_data.insert(0, "Time", down_data.index)
-        buffer = StringIO()
-        down_data.to_csv(buffer, index=False, encoding="utf-8-sig")
-        buffer.seek(0)
-        return buffer
+        csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
+        yield csv_bytes
 
    
 
