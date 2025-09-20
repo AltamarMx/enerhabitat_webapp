@@ -269,7 +269,7 @@ def server(input, output, session):
             display_df = datos.copy()
             display_df.insert(0, "Time", datos.index)
             return render.DataGrid(
-                display_df, summary="Viendo filas {start} a {end} de {total}"
+                display_df.round(1), summary="Viendo filas {start} a {end} de {total}"
             )
 
     #   << Gráficas >>
@@ -365,7 +365,7 @@ def server(input, output, session):
         if down_data is None or down_data.empty:
             return
         down_data.insert(0, "Time", down_data.index)
-        csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
+        csv_bytes = down_data.round(1).to_csv(index=False).encode("utf-8-sig")
         yield csv_bytes
 
     @render.download(filename=lambda: f"enerhabitat-{date.today().isoformat()}.csv")
