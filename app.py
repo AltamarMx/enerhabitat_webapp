@@ -2,7 +2,7 @@ import plotly.express as px
 import enerhabitat as eh
 import pandas as pd
 import os
-eh.Nx = 10
+
 from datetime import date
 
 from shiny import App, ui, render, reactive
@@ -10,6 +10,7 @@ from shinywidgets import output_widget, render_widget
 
 from utils.card import init_sistemas, side_card, sc_paneles, PRECARGADOS_DIR, MAX_CAPAS, MAX_SC
 
+eh.Nx = 10
 
 app_ui = ui.page_fluid(
     ui.modal(
@@ -33,14 +34,12 @@ app_ui = ui.page_fluid(
             ),
         ),
         ui.nav_panel(
-            "Datos día promedio",
-            ui.output_data_frame("dia_df"),
-            ui.download_button("down_dia", "Descargar datos", width="100%"),
+            "Datos",
+            ui.output_ui("ui_dataframes"),
         ),
         ui.nav_panel(
-            "Datos resultados",
-            ui.output_ui("ui_datos_res"),
-            
+            "Herramientas",
+            ui.h3("Aún no hay herramientas disponibles..."),          
         ),
         title="EnerHabitat",
         id="nav_bar",
@@ -63,20 +62,21 @@ def server(input, output, session):
     selected_sc = reactive.Value("SC 1")
     open_layers = reactive.Value({i: "capa_1" for i in range(1, MAX_SC + 1)})
 
-    """
-    ==================================================
-                Lo que a veces NO funciona
-    ==================================================
-    """
     @output
     @render.ui
-    def ui_datos_res():
-        if soluciones_dataframe.get().empty:
-            return ui.h3("Aún no hay resultados para mostrar...")
+    def ui_dataframes():
+        if dia_promedio_dataframe.get().empty:
+            return ui.h3("Aún no hay datos para mostrar...")
         else:
-            return [ui.output_data_frame("sol_df"),
-            ui.download_button("down_res", "Descargar datos", width="100%")]
-
+            if soluciones_dataframe.get().empty:
+                return [
+                    ui.output_data_frame("dia_df"),
+                    ui.download_button("down_dia", "Descargar datos", width="100%")]
+            else:
+                return [
+                    ui.output_data_frame("sol_df"),
+                    ui.download_button("down_res", "Descargar datos", width="100%")]
+            
     # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
     def update_sistemas():
@@ -186,15 +186,12 @@ def server(input, output, session):
     def calculate_solucion():
         # Solo se ejecuta cuando se presiona el botón resolver_sc
         num_sc = input.num_sc()
-        datos = dia_promedio_dataframe.get()
-
-        sol_data_list = []
-
+        datos_dia_promedio = dia_promedio_dataframe.get().copy()
+        resultados_df = pd.DataFrame()
         for sc_id in range(1, num_sc + 1):
-            df = datos.copy()
             # Crear datos base para cada sistema constructivo
-            sol_data = eh.Tsa(
-                meanDay_dataframe=df,
+            Tsa_df = eh.Tsa(
+                meanDay_dataframe=datos_dia_promedio,
                 solar_absortance=float(input[f"absortancia_{sc_id}"]()),
                 surface_tilt=float(input.tilt()),
                 surface_azimuth=float(input.azimuth()),
@@ -204,22 +201,21 @@ def server(input, output, session):
             sc = sistemaConstructivo(sc_id)
 
             # Resolver para este sistema constructivo
-            sol_data = eh.solveCS(sc, sol_data)
-
-            # Agregar Ta e Is solo la primera vez
-            if sc_id == 1:
-                sol_data_list.append(
-                    sol_data[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]]
-                )
-
-            # Agregar identificador
-            sub_sol = sol_data[["Tsa", "Ti"]].add_suffix(f"_{sc_id}")
-            sol_data_list.append(sub_sol)
-
-        # Combinar todos los resultados
-        if sol_data_list:
-            resultado = pd.concat(sol_data_list, axis=1)
-            soluciones_dataframe.set(resultado)
+            solve_df = eh.solveCS(sc, Tsa_df)
+            
+            # Agregar info de Tsa solo la primera vez      
+            if sc_id == 1: 
+                resultados_df = Tsa_df[['zenith', 'elevation', 'azimuth', 'equation_of_time', 'DeltaTn', 'Tn', 'Ta', 'Ig', 'Ib', 'Id']]
+            
+            solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right")
+            
+            # Sufijo para el sistema constructivo
+            solve_df = solve_df.add_suffix(f"_{sc_id}")
+            
+            # Agregar Tsa y Ti con sufijo del sistema constructivo 
+            resultados_df = resultados_df.join(solve_df, how="right")
+            
+        soluciones_dataframe.set(resultados_df)
 
     # Manejo de EPW's
     @reactive.Effect
