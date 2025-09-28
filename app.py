@@ -8,13 +8,13 @@ from datetime import date
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
 
-from utils.card import init_sistemas, side_card, sc_paneles, PRECARGADOS_DIR, MAX_CAPAS, MAX_SC
-
 eh.Nx = 10
+
+from utils.card import init_sistemas, side_card, sc_paneles, PRECARGADOS_DIR, MAX_CAPAS, MAX_SC
 
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla. Comentarios a Guillermo Barrios gbv@ier.unam.mx",
+        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla.\n\nComentarios a Guillermo Barrios gbv@ier.unam.mx",
         title="EnerHabitat sigue en desarrollo.",
         easy_close=True,
         footer=None,
@@ -168,12 +168,14 @@ def server(input, output, session):
             for capa_id in range(1, capas_activas+1)
         ]
 
+    """
     def subIndex(cadena):
         # Convertir numeros a subindice
         SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
         cadena_mod = str(cadena).translate(SUB)
         cadena_mod.replace('_','')
         return cadena_mod
+    """
     
     """
     ==================================================
@@ -203,16 +205,14 @@ def server(input, output, session):
             # Resolver para este sistema constructivo
             solve_df = eh.solveCS(sc, Tsa_df)
             
+            # Agregar Tsa y Ti del sistema constructivo 
+            solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right").add_suffix(f"_{sc_id}")
+            
             # Agregar info de Tsa solo la primera vez      
             if sc_id == 1: 
-                resultados_df = Tsa_df[['zenith', 'elevation', 'azimuth', 'equation_of_time', 'DeltaTn', 'Tn', 'Ta', 'Ig', 'Ib', 'Id']]
+                resultados_df = Tsa_df[["zenith", "elevation", "azimuth", "equation_of_time", "DeltaTn", "Tn", "Ta", "Ig", "Ib", "Id"]]
             
-            solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right")
-            
-            # Sufijo para el sistema constructivo
-            solve_df = solve_df.add_suffix(f"_{sc_id}")
-            
-            # Agregar Tsa y Ti con sufijo del sistema constructivo 
+            # Agregar columnas con sufijo
             resultados_df = resultados_df.join(solve_df, how="right")
             
         soluciones_dataframe.set(resultados_df)
@@ -252,20 +252,21 @@ def server(input, output, session):
     @render.data_frame
     def sol_df():
         datos = soluciones_dataframe.get().copy()
-        datos.insert(0, "Time", datos.index)
         if not datos.empty:
-            return render.DataGrid(datos.round(1), summary="Viendo filas {start} a {end} de {total}")
+            datos = datos.round(1)
+            datos.insert(0, "Time", datos.index)
+            return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
         else:
             return None
 
     @render.data_frame
     def dia_df():
-        datos = dia_promedio_dataframe.get()
+        datos = dia_promedio_dataframe.get().copy()
         if not datos.empty:
-            display_df = datos.copy()
-            display_df.insert(0, "Time", datos.index)
+            datos = datos.round(1)
+            datos.insert(0, "Time", datos.index)
             return render.DataGrid(
-                display_df.round(1), summary="Viendo filas {start} a {end} de {total}"
+                datos, summary="Viendo filas {start} a {end} de {total}"
             )
 
     #   << Gráficas >>
@@ -360,8 +361,9 @@ def server(input, output, session):
         down_data = dia_promedio_dataframe.get().copy()
         if down_data is None or down_data.empty:
             return
+        down_data = down_data.round(1)
         down_data.insert(0, "Time", down_data.index)
-        csv_bytes = down_data.round(1).to_csv(index=False).encode("utf-8-sig")
+        csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
         yield csv_bytes
 
     @render.download(filename=lambda: f"enerhabitat-{date.today().isoformat()}.csv")
@@ -369,8 +371,9 @@ def server(input, output, session):
         down_data = soluciones_dataframe.get().copy()
         if down_data is None or down_data.empty:
             return
+        down_data = down_data.round(1)
         down_data.insert(0, "Time", down_data.index)
-        csv_bytes = down_data.round(1).to_csv(index=False).encode("utf-8-sig")
+        csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
         yield csv_bytes
 
    
