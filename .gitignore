@@ -10,4 +10,5 @@ wheels/
 .venv
 
 # EPW folder
-epw/
+data/epw/
+

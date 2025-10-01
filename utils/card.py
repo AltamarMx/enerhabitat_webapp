@@ -5,7 +5,7 @@ import os
 MAX_CAPAS = 10  # Número máximo de capas por sistema constructivo
 MAX_SC = 5  # Número máximo de sistemas constructivos
 
-PRECARGADOS_DIR = "./epw/"
+PRECARGADOS_DIR = "./data/epw/"
 
 meses = {
     "01": "Enero",
@@ -52,11 +52,16 @@ def init_sistemas():
         sistemas[sc_id] = {
             "absortancia": 0.8,
             "capas_activas": 1,
+            "capa_abierta": "capa_1",  # Lista para rastrear el id de capas abiertas en el acordeón
             "capas": {
-                capa_id: {"material": "Adobe", "ancho": 0.1}
+                capa_id: {"material": materiales[1], "ancho": 0.1}
                 for capa_id in range(1, max_capas + 1)
             },
-        }
+            "FD": 0.0,
+            "FDsa": 0.0,
+            "TR": 0.0,
+            "ET": 0.0,
+            }
     return sistemas
 
 
@@ -122,7 +127,7 @@ def side_card():
     ]
 
 
-def sc_paneles(num_sc, sistemas, open_layers):
+def sc_paneles(num_sc, sistemas):
     """
     Crea una lista de paneles de sistemas constructivos para el navset_card_tab.
     """
@@ -148,7 +153,7 @@ def sc_paneles(num_sc, sistemas, open_layers):
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",
-                open=open_layers[sc_id],
+                open=sistemas[sc_id]["capa_abierta"],
                 multiple=False,
             ),
         ]
