@@ -136,7 +136,7 @@ def server(input, output, session):
                     resultados_df = Tsa_df[["zenith", "elevation", "azimuth", "equation_of_time", "DeltaTn", "Tn", "Ta", "Ig", "Ib", "Id"]]
 
                 # Agregar columnas con sufijo
-                sol_df = solve_df.add_suffix(f"_{sc_id}")
+                solve_df = solve_df.add_suffix(f"_{sc_id}")
                 resultados_df = resultados_df.join(solve_df, how="right")
 
             progreso.set(detail="Completo :D", value=progreso.value + 1)
