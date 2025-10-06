@@ -1,6 +1,11 @@
 from shiny import ui
 import enerhabitat as eh
 import os
+import base64
+from pathlib import Path
+
+LOGO_PATH = Path(__file__).parent.parent / "data" / "img" / "logo-EnerHabitat.png"
+
 
 MAX_CAPAS = 10  # Número máximo de capas por sistema constructivo
 MAX_SC = 5  # Número máximo de sistemas constructivos
@@ -36,6 +41,11 @@ azimuth = {
 }
 
 materiales = eh.get_list_materials()
+
+def _build_logo_data_uri():
+    global LOGO_PATH
+    encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode("utf-8")
+    return f"data:image/png;base64,{encoded}"
 
 
 def init_sistemas():
@@ -149,7 +159,7 @@ def sc_paneles(num_sc, sistemas):
                 step=0.01,
                 update_on="blur",
             ),
-            ui.h5("Capas:"),
+            ui.h3("Capas:"),
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",

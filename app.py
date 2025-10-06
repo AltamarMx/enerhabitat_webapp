@@ -1,33 +1,42 @@
 import plotly.express as px
 import enerhabitat as eh
 import pandas as pd
-import os
 
+import os
 from datetime import date
 
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
 
-eh.Nx = 10
-
 from utils.card import (
     init_sistemas,
     side_card,
     sc_paneles,
+    _build_logo_data_uri,
     PRECARGADOS_DIR,
     MAX_CAPAS,
 )
 
+eh.Nx = 10
+
+LOGO_DATA_URI = _build_logo_data_uri()
+
+
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla.\nComentarios a Guillermo Barrios gbv@ier.unam.mx",
+        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla.",
+        "Comentarios a Guillermo Barrios gbv@ier.unam.mx",
         title="EnerHabitat sigue en desarrollo.",
         easy_close=True,
         footer=None,
     ),
     ui.page_navbar(
         ui.nav_panel(
-            "EnerHabitat",
+            ui.tags.img(
+                src=LOGO_DATA_URI,
+                alt="EnerHabitat",
+                style="height: 37px;"
+            ) if LOGO_DATA_URI else "EnerHabitat",
             ui.page_sidebar(
                 ui.sidebar(
                     side_card(),
@@ -40,15 +49,15 @@ app_ui = ui.page_fluid(
             ),
         ),
         ui.nav_panel(
-            "Resultados",
+            ui.tags.h4("Resultados", style="text-align: center;"),
             ui.output_ui("ui_dataframes"),
         ),
         ui.nav_panel(
-            "Métricas",
+            ui.tags.h4("Métricas", style="text-align: center;"),
             ui.output_ui("ui_metricas"),
         ),
         id="nav_bar",
-    ),
+    )
 )
 
 
@@ -262,7 +271,7 @@ def server(input, output, session):
     @render.ui
     def ui_metricas():
         if soluciones_dataframe.get().empty:
-            return ui.h3("Aún no hay datos para mostrar...")
+            return ui.h2("Aún no hay datos para mostrar...")
         else:
             
             return ui.output_data_frame("metricas_table")
@@ -308,7 +317,7 @@ def server(input, output, session):
     @render.ui
     def ui_dataframes():
         if dia_promedio_dataframe.get().empty:
-            return ui.h3("Aún no hay datos para mostrar...")
+            return ui.h2("Aún no hay datos para mostrar...")
         else:
             if soluciones_dataframe.get().empty:
                 return [
