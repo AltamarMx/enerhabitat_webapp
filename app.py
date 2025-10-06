@@ -271,9 +271,8 @@ def server(input, output, session):
     @render.ui
     def ui_metricas():
         if soluciones_dataframe.get().empty:
-            return ui.h2("Aún no hay datos para mostrar...")
+            return ui.h4("Aún no hay métricas... Haz una simulación para empezar")
         else:
-            
             return ui.output_data_frame("metricas_table")
     
     # ui para subir archivo
@@ -317,7 +316,7 @@ def server(input, output, session):
     @render.ui
     def ui_dataframes():
         if dia_promedio_dataframe.get().empty:
-            return ui.h2("Aún no hay datos para mostrar...")
+            return ui.h4("Aún no hay datos para mostrar...")
         else:
             if soluciones_dataframe.get().empty:
                 return [
