@@ -78,6 +78,8 @@ def server(input, output, session):
     #          TR,
     #          ET}
 
+    selected_sc = reactive.Value("SC 1")
+
     """
     ================================
            EnerHabitat paquete          
@@ -142,7 +144,6 @@ def server(input, output, session):
             progreso.set(detail="Completo :D", value=progreso.value + 1)
             soluciones_dataframe.set(resultados_df)
 
-
     """
     ================================
           Funciones auxiliares          
@@ -176,7 +177,7 @@ def server(input, output, session):
     # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
     def update_sistemas():
-        sc_id = int(input.sc_seleccionado().replace("SC ", ""))
+        sc_id = int(selected_sc.get().replace("SC ", ""))
         paneles_abiertos = input[f"capas_accordion_{sc_id}"]()
         current = sistemas.get().copy()
 
@@ -199,15 +200,11 @@ def server(input, output, session):
         ancho_sistema = current[sc_id]["capas"][capa_id]["ancho"]
 
         if input[f"material_capa_{sc_id}_{capa_id}"]() != material_sistema:
-            current[sc_id]["capas"][capa_id]["material"] = input[
-                f"material_capa_{sc_id}_{capa_id}"
-            ]()
+            current[sc_id]["capas"][capa_id]["material"] = input[f"material_capa_{sc_id}_{capa_id}"]()
             updated = True
 
         if input[f"ancho_capa_{sc_id}_{capa_id}"]() != ancho_sistema:
-            current[sc_id]["capas"][capa_id]["ancho"] = input[
-                f"ancho_capa_{sc_id}_{capa_id}"
-            ]()
+            current[sc_id]["capas"][capa_id]["ancho"] = input[f"ancho_capa_{sc_id}_{capa_id}"]()
             updated = True
 
         if input[f"absortancia_{sc_id}"]() != current[sc_id]["absortancia"]:
@@ -239,6 +236,14 @@ def server(input, output, session):
             current[sc_id]["capas_activas"] += 1
             sistemas.set(current)
 
+    @reactive.Effect
+    def _sync_selected_sc():
+        selected_sc.set(input.sc_seleccionado())
+
+    @reactive.Effect
+    @reactive.event(input.num_sc)
+    def _jump_to_new_sc():
+        selected_sc.set(f"SC {input.num_sc()}")
     
     # Convertir numeros a subindice
     def subIndex(cadena):
@@ -259,11 +264,10 @@ def server(input, output, session):
     @render.ui
     def ui_sistemas():
         num_sc = input.num_sc()
-
         return ui.navset_card_tab(
             *sc_paneles(num_sc, sistemas.get()),
-            id="sc_seleccionado",
-            selected=f"SC {num_sc}",
+            id = "sc_seleccionado",
+            selected=selected_sc
         )
 
     # ui de métricas

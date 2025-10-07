@@ -6,7 +6,6 @@ from pathlib import Path
 
 LOGO_PATH = Path(__file__).parent.parent / "data" / "img" / "logo-EnerHabitat.png"
 
-
 MAX_CAPAS = 10  # Número máximo de capas por sistema constructivo
 MAX_SC = 5  # Número máximo de sistemas constructivos
 
@@ -46,7 +45,6 @@ def _build_logo_data_uri():
     global LOGO_PATH
     encoded = base64.b64encode(LOGO_PATH.read_bytes()).decode("utf-8")
     return f"data:image/png;base64,{encoded}"
-
 
 def init_sistemas():
     """
