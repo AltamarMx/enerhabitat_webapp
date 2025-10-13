@@ -12,15 +12,12 @@ from utils.card import (
     init_sistemas,
     side_card,
     sc_paneles,
-    _build_logo_data_uri,
+    build_img_uri,
     PRECARGADOS_DIR,
     MAX_CAPAS,
 )
 
 eh.Nx = 10
-
-LOGO_DATA_URI = _build_logo_data_uri()
-
 
 app_ui = ui.page_fluid(
     ui.modal(
@@ -32,31 +29,31 @@ app_ui = ui.page_fluid(
     ),
     ui.page_navbar(
         ui.nav_panel(
-            ui.tags.img(
-                src=LOGO_DATA_URI,
-                alt="EnerHabitat",
-                style="height: 37px;"
-            ) if LOGO_DATA_URI else "EnerHabitat",
+            "EnerHabitat",
             ui.page_sidebar(
                 ui.sidebar(
                     side_card(),
                     id="sidebar",
                     width=350,
-                    position="right",
+                    # position="right",
                 ),
                 ui.card(ui.card_header("Temperatura"), output_widget("sol_plot")),
                 ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot")),
             ),
         ),
         ui.nav_panel(
-            ui.tags.h4("Resultados", style="text-align: center;"),
+            "Resultados",
             ui.output_ui("ui_dataframes"),
         ),
         ui.nav_panel(
-            ui.tags.h4("Métricas", style="text-align: center;"),
+            "Métricas",
             ui.output_ui("ui_metricas"),
         ),
-        id="nav_bar",
+        title=ui.tags.img(
+                src=build_img_uri("icono-EnerHabitat.png"),
+                alt="EnerHabitat",
+                style="height: 40px;"
+            ),
     )
 )
 
@@ -77,8 +74,6 @@ def server(input, output, session):
     #          FDsa,
     #          TR,
     #          ET}
-
-    selected_sc = reactive.Value("SC 1")
 
     """
     ================================
@@ -177,7 +172,7 @@ def server(input, output, session):
     # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
     def update_sistemas():
-        sc_id = int(selected_sc.get().replace("SC ", ""))
+        sc_id = int(input.sc_seleccionado().replace("SC ", ""))
         paneles_abiertos = input[f"capas_accordion_{sc_id}"]()
         current = sistemas.get().copy()
 
@@ -235,15 +230,6 @@ def server(input, output, session):
         if current[sc_id]["capas_activas"] < MAX_CAPAS:
             current[sc_id]["capas_activas"] += 1
             sistemas.set(current)
-
-    @reactive.Effect
-    def _sync_selected_sc():
-        selected_sc.set(input.sc_seleccionado())
-
-    @reactive.Effect
-    @reactive.event(input.num_sc)
-    def _jump_to_new_sc():
-        selected_sc.set(f"SC {input.num_sc()}")
     
     # Convertir numeros a subindice
     def subIndex(cadena):
@@ -263,12 +249,17 @@ def server(input, output, session):
     @output
     @render.ui
     def ui_sistemas():
-        num_sc = input.num_sc()
+        num_sistemas = input.num_sc()
+        try:
+            selected = input.sc_seleccionado()
+        except:
+            selected = f"SC {num_sistemas}"
+            
         return ui.navset_card_tab(
-            *sc_paneles(num_sc, sistemas.get()),
+            *sc_paneles(num_sistemas, sistemas.get()),
             id = "sc_seleccionado",
-            selected=selected_sc
-        )
+            selected=selected
+            )
 
     # ui de métricas
     @output
