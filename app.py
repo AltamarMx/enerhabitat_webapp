@@ -1,49 +1,60 @@
 import plotly.express as px
 import enerhabitat as eh
 import pandas as pd
-import os
 
+import os
 from datetime import date
 
 from shiny import App, ui, render, reactive
 from shinywidgets import output_widget, render_widget
 
-eh.Nx = 10
+from utils.card import (
+    init_sistemas,
+    side_card,
+    sc_paneles,
+    build_img_uri,
+    PRECARGADOS_DIR,
+    MAX_CAPAS,
+)
 
-from utils.card import init_sistemas, side_card, sc_paneles, PRECARGADOS_DIR, MAX_CAPAS, MAX_SC
+eh.Nx = 10
 
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla.\n\nComentarios a Guillermo Barrios gbv@ier.unam.mx",
+        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla.",
+        "Comentarios a Guillermo Barrios gbv@ier.unam.mx",
         title="EnerHabitat sigue en desarrollo.",
         easy_close=True,
         footer=None,
     ),
     ui.page_navbar(
         ui.nav_panel(
-            "Resultados",
+            "EnerHabitat",
             ui.page_sidebar(
                 ui.sidebar(
                     side_card(),
                     id="sidebar",
                     width=350,
-                    position="right",
+                    # position="right",
                 ),
                 ui.card(ui.card_header("Temperatura"), output_widget("sol_plot")),
                 ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot")),
             ),
         ),
         ui.nav_panel(
-            "Datos",
+            "Resultados",
             ui.output_ui("ui_dataframes"),
         ),
         ui.nav_panel(
-            "Herramientas",
-            ui.h3("Aún no hay herramientas disponibles..."),          
+            "Métricas",
+            ui.output_ui("ui_metricas"),
         ),
-        title="EnerHabitat",
-        id="nav_bar",
-    ),
+        title=ui.tags.img(
+                src=build_img_uri("icono-EnerHabitat.png"),
+                alt="EnerHabitat",
+                style="height: 40px;"
+            ),
+    )
 )
 
 
@@ -53,169 +64,94 @@ def server(input, output, session):
     soluciones_dataframe = reactive.Value(pd.DataFrame())
     current_file = reactive.Value(None)
 
-    # Diccionario para mantener el registro de capas por cada sistema constructivo
-    sistemas = reactive.Value(init_sistemas())  
+    # Diccionario para datos de cada sistema constructivo
+    sistemas = reactive.Value(init_sistemas())
     # {sc_id : absortancia,
     #          capas_activas,
+    #          capa_abierta,
     #          capas: {capa_id: material, ancho}
-    
-    selected_sc = reactive.Value("SC 1")
-    open_layers = reactive.Value({i: "capa_1" for i in range(1, MAX_SC + 1)})
+    #          FD,
+    #          FDsa,
+    #          TR,
+    #          ET}
 
-    @output
-    @render.ui
-    def ui_dataframes():
-        if dia_promedio_dataframe.get().empty:
-            return ui.h3("Aún no hay datos para mostrar...")
-        else:
-            if soluciones_dataframe.get().empty:
-                return [
-                    ui.output_data_frame("dia_df"),
-                    ui.download_button("down_dia", "Descargar datos", width="100%")]
-            else:
-                return [
-                    ui.output_data_frame("sol_df"),
-                    ui.download_button("down_res", "Descargar datos", width="100%")]
-            
-    # Actualizar capas_activas cuando cambia el número de SC
+    """
+    ================================
+           EnerHabitat paquete          
+    ================================
+    """
+    # Recalcular meanDay cuando cambie el EPW o el mes
     @reactive.Effect
-    def update_sistemas():
-        sc_id = int(input.sc_seleccionado().replace("SC ", ""))
-        paneles_abiertos = input[f"capas_accordion_{sc_id}"]()
-        current_open = open_layers.get().copy()
-        
-        if paneles_abiertos is None or len(paneles_abiertos) == 0:
-            paneles_abiertos = current_open[sc_id]
-            
-        else:
-            if current_open[sc_id] != paneles_abiertos[0]:
-                current_open[sc_id] = paneles_abiertos[0]
-                open_layers.set(current_open)
-            
-        capa_id = int(current_open[sc_id].replace("capa_", ""))
-        current = sistemas.get().copy()
+    def update_meanDay():
+        if current_file.get() is not None:
+            df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
+            dia_promedio_dataframe.set(df)
 
-        updated = False
-            
-        material_sistema = current[sc_id]["capas"][capa_id]["material"]
-        ancho_sistema = current[sc_id]["capas"][capa_id]["ancho"]
-            
-        if input[f"material_capa_{sc_id}_{capa_id}"]() != material_sistema:
-            current[sc_id]["capas"][capa_id]["material"] = input[f"material_capa_{sc_id}_{capa_id}"]()
-            updated = True
-        
-        if input[f"ancho_capa_{sc_id}_{capa_id}"]() != ancho_sistema:
-            current[sc_id]["capas"][capa_id]["ancho"] = input[f"ancho_capa_{sc_id}_{capa_id}"]()
-            updated = True
-            
-        if input[f"absortancia_{sc_id}"]() != current[sc_id]["absortancia"]:
-            current[sc_id]["absortancia"] = input[f"absortancia_{sc_id}"]()
-            updated = True
-        
-        if updated:
-            sistemas.set(current)
-
+    # Resolver sistemas constructivos
     @reactive.Effect
-    def _sync_selected_sc():
-        selected_sc.set(input.sc_seleccionado())
-
-    @reactive.Effect
-    @reactive.event(input.num_sc)
-    def _jump_to_new_sc():
-        selected_sc.set(f"SC {input.num_sc()}")
-         
-    # ui del contenedor de sistemas constructivos
-    @output
-    @render.ui
-    def ui_sistemas():
+    @reactive.event(input.resolver_sc) # Solo se ejecuta cuando se presiona el botón resolver_sc
+    def calculate_solucion():
         num_sc = input.num_sc()
-    
-        return ui.navset_card_tab(
-            *sc_paneles(num_sc, sistemas.get(), open_layers.get()),
-            id="sc_seleccionado",
-            selected=selected_sc.get(),
-            )
-    
-    @reactive.Effect
-    @reactive.event(input.add_capa)
-    def _add_capa():   
-        sc_id = input.sc_seleccionado().replace("SC ", "")
-        sc_id = int(sc_id)
-        current = sistemas.get().copy()
-        
-        if current[sc_id]["capas_activas"] < MAX_CAPAS:
-            current[sc_id]["capas_activas"] += 1
-            sistemas.set(current)
+        with ui.Progress(min=1, max=num_sc * 2 + 2) as progreso:
+            progreso.set(message="Calculando...", detail="Cargando datos", value=1)
 
-    @reactive.Effect
-    @reactive.event(input.remove_capa)
-    def _remove_capa():
-        sc_id = input.sc_seleccionado().replace("SC ", "")
-        sc_id = int(sc_id)
-        current = sistemas.get().copy()
-        if current[sc_id]["capas_activas"] > 1:
-            nuevas_capas_activas = current[sc_id]["capas_activas"] - 1
-            current[sc_id]["capas_activas"] = nuevas_capas_activas
-            sistemas.set(current)
+            current =  sistemas.get().copy()
+            datos_dia_promedio = dia_promedio_dataframe.get().copy()
+            resultados_df = pd.DataFrame()
+            for sc_id in range(1, num_sc + 1):
+                # Crear datos base para cada sistema constructivo
+                progreso.set(
+                    detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1
+                )
+                Tsa_df = eh.Tsa(
+                    meanDay_dataframe=datos_dia_promedio,
+                    solar_absortance=float(input[f"absortancia_{sc_id}"]()),
+                    surface_tilt=float(input.tilt()),
+                    surface_azimuth=float(input.azimuth()),
+                )
 
-    #   << Funciones auxiliares >>
-    # Regresa lista de tuplas para el sc_id
+                # Obtener el sistema constructivo actual
+                sc = sistemaConstructivo(sc_id)
+
+                # Resolver para este sistema constructivo
+                progreso.set(
+                    detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1
+                )
+                solve_df = eh.solveCS(sc, Tsa_df)
+
+                # Crear subconjunto con Is, Tsa y Ti
+                solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right")
+
+                # Calcular métricas
+                deltaTi = solve_df.Ti.max() - solve_df.Ti.min()
+                current[sc_id]["FD"] = deltaTi/(Tsa_df.Ta.max() - Tsa_df.Ta.min())
+                current[sc_id]["FDsa"] = deltaTi/(Tsa_df.Tsa.max() - Tsa_df.Tsa.min())
+                current[sc_id]["TR"] = solve_df.Ti.idxmax() - Tsa_df.Ta.idxmax() 
+
+                # Agregar info de Tsa solo la primera vez
+                if sc_id == 1:
+                    resultados_df = Tsa_df[["zenith", "elevation", "azimuth", "equation_of_time", "DeltaTn", "Tn", "Ta", "Ig", "Ib", "Id"]]
+
+                # Agregar columnas con sufijo
+                solve_df = solve_df.add_suffix(f"_{sc_id}")
+                resultados_df = resultados_df.join(solve_df, how="right")
+
+            progreso.set(detail="Completo :D", value=progreso.value + 1)
+            soluciones_dataframe.set(resultados_df)
+
+    """
+    ================================
+          Funciones auxiliares          
+    ================================
+    """
+    # Regresa lista de tuplas de SC para el sc_id
     def sistemaConstructivo(sc_id):
         capas = sistemas().get(sc_id)["capas"]
         capas_activas = sistemas().get(sc_id)["capas_activas"]
         return [
             (capas[capa_id]["material"], capas[capa_id]["ancho"])
-            for capa_id in range(1, capas_activas+1)
+            for capa_id in range(1, capas_activas + 1)
         ]
-
-    """
-    def subIndex(cadena):
-        # Convertir numeros a subindice
-        SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
-        cadena_mod = str(cadena).translate(SUB)
-        cadena_mod.replace('_','')
-        return cadena_mod
-    """
-    
-    """
-    ==================================================
-                    Lo que funciona
-    ==================================================
-    """
-    # Resolver sistemas constructivos
-    @reactive.Effect
-    @reactive.event(input.resolver_sc)
-    def calculate_solucion():
-        # Solo se ejecuta cuando se presiona el botón resolver_sc
-        num_sc = input.num_sc()
-        datos_dia_promedio = dia_promedio_dataframe.get().copy()
-        resultados_df = pd.DataFrame()
-        for sc_id in range(1, num_sc + 1):
-            # Crear datos base para cada sistema constructivo
-            Tsa_df = eh.Tsa(
-                meanDay_dataframe=datos_dia_promedio,
-                solar_absortance=float(input[f"absortancia_{sc_id}"]()),
-                surface_tilt=float(input.tilt()),
-                surface_azimuth=float(input.azimuth()),
-            )
-
-            # Obtener el sistema constructivo actual
-            sc = sistemaConstructivo(sc_id)
-
-            # Resolver para este sistema constructivo
-            solve_df = eh.solveCS(sc, Tsa_df)
-            
-            # Agregar Tsa y Ti del sistema constructivo 
-            solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right").add_suffix(f"_{sc_id}")
-            
-            # Agregar info de Tsa solo la primera vez      
-            if sc_id == 1: 
-                resultados_df = Tsa_df[["zenith", "elevation", "azimuth", "equation_of_time", "DeltaTn", "Tn", "Ta", "Ig", "Ib", "Id"]]
-            
-            # Agregar columnas con sufijo
-            resultados_df = resultados_df.join(solve_df, how="right")
-            
-        soluciones_dataframe.set(resultados_df)
 
     # Manejo de EPW's
     @reactive.Effect
@@ -231,15 +167,109 @@ def server(input, output, session):
     def epw_upload():
         if input.selector_archivo() == "upload" and input.epw_file() is not None:
             file_info = input.epw_file()[0]
-            current_file.set(file_info["datapath"])
+            current_file.set(file_info["datapath"])  
 
-    # Recalcular meanDay cuando cambie el EPW o el mes
+    # Actualizar capas_activas cuando cambia el número de SC
     @reactive.Effect
-    def update_meanDay():
-        if current_file.get() is not None:
-            df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
-            dia_promedio_dataframe.set(df)
+    def update_sistemas():
+        sc_id = int(input.sc_seleccionado().replace("SC ", ""))
+        paneles_abiertos = input[f"capas_accordion_{sc_id}"]()
+        current = sistemas.get().copy()
 
+        current_open = current[sc_id]["capa_abierta"]
+
+        if paneles_abiertos is None or len(paneles_abiertos) == 0:
+            paneles_abiertos = current_open[sc_id]
+
+        else:
+            if current_open != paneles_abiertos[0]:
+                current_open = paneles_abiertos[0]
+                current[sc_id]["capa_abierta"] = current_open
+                sistemas.set(current)
+
+        capa_id = int(current_open.replace("capa_", ""))
+
+        updated = False
+
+        material_sistema = current[sc_id]["capas"][capa_id]["material"]
+        ancho_sistema = current[sc_id]["capas"][capa_id]["ancho"]
+
+        if input[f"material_capa_{sc_id}_{capa_id}"]() != material_sistema:
+            current[sc_id]["capas"][capa_id]["material"] = input[f"material_capa_{sc_id}_{capa_id}"]()
+            updated = True
+
+        if input[f"ancho_capa_{sc_id}_{capa_id}"]() != ancho_sistema:
+            current[sc_id]["capas"][capa_id]["ancho"] = input[f"ancho_capa_{sc_id}_{capa_id}"]()
+            updated = True
+
+        if input[f"absortancia_{sc_id}"]() != current[sc_id]["absortancia"]:
+            current[sc_id]["absortancia"] = input[f"absortancia_{sc_id}"]()
+            updated = True
+
+        if updated:
+            sistemas.set(current)
+
+    @reactive.Effect
+    @reactive.event(input.remove_capa)
+    def _remove_capa():
+        sc_id = input.sc_seleccionado().replace("SC ", "")
+        sc_id = int(sc_id)
+        current = sistemas.get().copy()
+        if current[sc_id]["capas_activas"] > 1:
+            nuevas_capas_activas = current[sc_id]["capas_activas"] - 1
+            current[sc_id]["capas_activas"] = nuevas_capas_activas
+            sistemas.set(current)    
+
+    @reactive.Effect
+    @reactive.event(input.add_capa)
+    def _add_capa():
+        sc_id = input.sc_seleccionado().replace("SC ", "")
+        sc_id = int(sc_id)
+        current = sistemas.get().copy()
+
+        if current[sc_id]["capas_activas"] < MAX_CAPAS:
+            current[sc_id]["capas_activas"] += 1
+            sistemas.set(current)
+    
+    # Convertir numeros a subindice
+    def subIndex(cadena):
+        SUB = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+        cadena_mod = str(cadena).translate(SUB)
+        cadena_mod.replace('_','')
+        return cadena_mod
+    
+
+    """
+    ********************************
+            UI's y outputs          
+    ********************************
+    """
+
+    # ui del contenedor de sistemas constructivos
+    @output
+    @render.ui
+    def ui_sistemas():
+        num_sistemas = input.num_sc()
+        try:
+            selected = input.sc_seleccionado()
+        except:
+            selected = f"SC {num_sistemas}"
+            
+        return ui.navset_card_tab(
+            *sc_paneles(num_sistemas, sistemas.get()),
+            id = "sc_seleccionado",
+            selected=selected
+            )
+
+    # ui de métricas
+    @output
+    @render.ui
+    def ui_metricas():
+        if soluciones_dataframe.get().empty:
+            return ui.h4("Aún no hay métricas... Haz una simulación para empezar")
+        else:
+            return ui.output_data_frame("metricas_table")
+    
     # ui para subir archivo
     @output
     @render.ui
@@ -247,18 +277,55 @@ def server(input, output, session):
         if input.selector_archivo() == "upload":
             return ui.input_file("epw_file", label="", accept=[".epw"], multiple=False)
         return None
-
-    #   << DataFrames >>
+    
+    
+    """
+    ================================
+        DataFrames (Data Grids)          
+    ================================
+    """
+    
     @render.data_frame
-    def sol_df():
-        datos = soluciones_dataframe.get().copy()
-        if not datos.empty:
-            datos = datos.round(1)
-            datos.insert(0, "Time", datos.index)
-            return render.DataGrid(datos, summary="Viendo filas {start} a {end} de {total}")
+    def metricas_table():
+        current =  sistemas.get().copy()
+        c_FD = []
+        c_FDsa = []
+        c_TR = []
+        c_ET = []
+        for sc_id in range(1, input.num_sc() + 1):
+            c_FD.append(current[sc_id]["FD"])
+            c_FDsa.append(current[sc_id]["FDsa"])
+            c_TR.append(current[sc_id]["TR"])
+            c_ET.append(current[sc_id]["ET"])
+            
+        metricas_df = pd.DataFrame({
+            "SC" : [i for i in range(1, input.num_sc() + 1)],
+            "FD": c_FD,
+            "FDsa": c_FDsa,
+            "TR": c_TR,
+            "ET": c_ET
+        }).round(3)
+        return render.DataTable(metricas_df)
+    
+    @output
+    @render.ui
+    def ui_dataframes():
+        if dia_promedio_dataframe.get().empty:
+            return ui.h4("Aún no hay datos para mostrar...")
         else:
-            return None
+            if soluciones_dataframe.get().empty:
+                return [
+                    ui.output_data_frame("dia_df"),
+                    ui.download_button("down_dia", "Descargar datos", width="100%"),
+                ]
 
+            else:
+                return [
+                    ui.output_data_frame("sol_df"),
+                    ui.download_button("down_res", "Descargar datos", width="100%"),
+                ]
+
+    # DataGrid del día promedio
     @render.data_frame
     def dia_df():
         datos = dia_promedio_dataframe.get().copy()
@@ -269,7 +336,25 @@ def server(input, output, session):
                 datos, summary="Viendo filas {start} a {end} de {total}"
             )
 
-    #   << Gráficas >>
+    # DataGrid de la Ti
+    @render.data_frame
+    def sol_df():
+        datos = soluciones_dataframe.get().copy()
+        if not datos.empty:
+            datos = datos.round(1)
+            datos.insert(0, "Time", datos.index)
+            return render.DataGrid(
+                datos, summary="Viendo filas {start} a {end} de {total}"
+            )
+        else:
+            return None
+
+
+    """
+    ================================
+            Gráficas (Plotly)          
+    ================================
+    """
     # Temperaturas
     @render_widget
     def sol_plot():
@@ -282,7 +367,7 @@ def server(input, output, session):
         if sol_data.empty:
             # Gráfica de día promedio
             display_data = dia_data.copy()[::60]  # Cada segundo
-            
+
             solucion_plot = px.scatter(
                 data_frame=display_data,
                 x=display_data.index,
@@ -294,7 +379,7 @@ def server(input, output, session):
             display_data = sol_data.copy()
             columnas = []
             for i in display_data.columns[1:]:
-                if i.startswith("T"):
+                if i.startswith("T") and i != "Tn":
                     columnas.append(i)
 
             # Limpieza de Tsa
@@ -355,8 +440,15 @@ def server(input, output, session):
 
         return solucion_plot
 
-    #   << Descargas >>
-    @render.download(filename=lambda: f"enerhabitat-meanday-{date.today().isoformat()}.csv")
+
+    """
+    ================================
+                Descargas          
+    ================================
+    """
+    @render.download(
+        filename=lambda: f"enerhabitat-meanday-{date.today().isoformat()}.csv"
+    )
     def down_dia():
         down_data = dia_promedio_dataframe.get().copy()
         if down_data is None or down_data.empty:
@@ -375,7 +467,5 @@ def server(input, output, session):
         down_data.insert(0, "Time", down_data.index)
         csv_bytes = down_data.to_csv(index=False).encode("utf-8-sig")
         yield csv_bytes
-
-   
 
 app = App(app_ui, server)

@@ -1,11 +1,14 @@
 from shiny import ui
 import enerhabitat as eh
 import os
+import base64
+from pathlib import Path
 
 MAX_CAPAS = 10  # Número máximo de capas por sistema constructivo
 MAX_SC = 5  # Número máximo de sistemas constructivos
 
-PRECARGADOS_DIR = "./epw/"
+PRECARGADOS_DIR = "./data/epw/"
+IMG_DIR = "./data/img/"
 
 meses = {
     "01": "Enero",
@@ -37,6 +40,10 @@ azimuth = {
 
 materiales = eh.get_list_materials()
 
+def build_img_uri(img_file_name):
+    img_path = Path(IMG_DIR + f"{img_file_name}")
+    encoded = base64.b64encode(img_path.read_bytes()).decode("utf-8")
+    return f"data:image/png;base64,{encoded}"
 
 def init_sistemas():
     """
@@ -52,11 +59,16 @@ def init_sistemas():
         sistemas[sc_id] = {
             "absortancia": 0.8,
             "capas_activas": 1,
+            "capa_abierta": "capa_1",  # Lista para rastrear el id de capas abiertas en el acordeón
             "capas": {
-                capa_id: {"material": "Adobe", "ancho": 0.1}
+                capa_id: {"material": materiales[1], "ancho": 0.1}
                 for capa_id in range(1, max_capas + 1)
             },
-        }
+            "FD": 0.0,
+            "FDsa": 0.0,
+            "TR": 0.0,
+            "ET": 0.0,
+            }
     return sistemas
 
 
@@ -122,7 +134,7 @@ def side_card():
     ]
 
 
-def sc_paneles(num_sc, sistemas, open_layers):
+def sc_paneles(num_sc, sistemas):
     """
     Crea una lista de paneles de sistemas constructivos para el navset_card_tab.
     """
@@ -144,11 +156,11 @@ def sc_paneles(num_sc, sistemas, open_layers):
                 step=0.01,
                 update_on="blur",
             ),
-            ui.h5("Capas:"),
+            ui.h3("Capas:"),
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",
-                open=open_layers[sc_id],
+                open=sistemas[sc_id]["capa_abierta"],
                 multiple=False,
             ),
         ]

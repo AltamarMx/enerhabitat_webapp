@@ -10,4 +10,7 @@ wheels/
 .venv
 
 # EPW folder
-epw/
+data/epw/
+
+# img folder
+# data/img/
