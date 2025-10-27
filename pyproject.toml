@@ -3,7 +3,7 @@ name = "eh-shiny"
 version = "0.1.0"
 description = "Aplicación para evaluar el desempeño térmico de un muro o techo en cualquier parte de la república con o sin sistema de A/C"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "enerhabitat>=0.1.4",
     "plotly>=6.0.1",

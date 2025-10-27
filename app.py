@@ -120,7 +120,7 @@ def server(input, output, session):
                 solve_df = eh.solveCS(sc, Tsa_df)
 
                 # Crear subconjunto con Is, Tsa y Ti
-                solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right")
+                solve_df = Tsa_df[["Tsa"]].join(solve_df, how="right")
 
                 # Calcular métricas
                 deltaTi = solve_df.Ti.max() - solve_df.Ti.min()
@@ -130,7 +130,7 @@ def server(input, output, session):
 
                 # Agregar info de Tsa solo la primera vez
                 if sc_id == 1:
-                    resultados_df = Tsa_df[["zenith", "elevation", "azimuth", "equation_of_time", "DeltaTn", "Tn", "Ta", "Ig", "Ib", "Id"]]
+                    resultados_df = Tsa_df[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]]
 
                 # Agregar columnas con sufijo
                 solve_df = solve_df.add_suffix(f"_{sc_id}")
@@ -267,6 +267,7 @@ def server(input, output, session):
     def ui_metricas():
         if soluciones_dataframe.get().empty:
             return ui.h4("Aún no hay métricas... Haz una simulación para empezar")
+        
         else:
             return ui.output_data_frame("metricas_table")
     
@@ -288,22 +289,34 @@ def server(input, output, session):
     @render.data_frame
     def metricas_table():
         current =  sistemas.get().copy()
+        c_SC = []
+        c_a = []
         c_FD = []
         c_FDsa = []
         c_TR = []
         c_ET = []
         for sc_id in range(1, input.num_sc() + 1):
+            c_a.append(current[sc_id]["absortancia"])
             c_FD.append(current[sc_id]["FD"])
             c_FDsa.append(current[sc_id]["FDsa"])
-            c_TR.append(current[sc_id]["TR"])
             c_ET.append(current[sc_id]["ET"])
             
+            Tr = current[sc_id]["TR"].components
+            dias = Tr.days
+            horas = Tr.hours + dias * 24
+            minutos = Tr.minutes
+            
+            c_TR.append(f"{horas:02}:{minutos:02}")
+            
+            # c_SC.append(current[sc_id]["capas"])
+        
         metricas_df = pd.DataFrame({
             "SC" : [i for i in range(1, input.num_sc() + 1)],
-            "FD": c_FD,
-            "FDsa": c_FDsa,
-            "TR": c_TR,
-            "ET": c_ET
+            "a\n[-]": c_a,
+            "FD\n[-]": c_FD,
+            "FDsa\n[-]": c_FDsa,
+            "TR\n[HH:MM]": c_TR,
+            "ET\n[Wh/m²]": c_ET
         }).round(3)
         return render.DataTable(metricas_df)
     

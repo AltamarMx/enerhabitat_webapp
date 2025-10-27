@@ -97,7 +97,6 @@ def side_card():
                 meses,
                 selected="Enero",
             ),
-            ui.input_checkbox("mostrar_Tsa", "Mostrar Tsa", False),
         ),
         ui.card(
             ui.card_header("Datos geométricos"),
@@ -122,7 +121,11 @@ def side_card():
                     class_="btn-primary",
                 ),
                 width=1 / 2,
-            ),
+            )
+        ),
+        ui.card(
+            ui.input_switch("mostrar_Tsa", "Mostrar Tsa", False, width="100%"),
+            ui.input_radio_buttons("aire_acondicionado","", choices={False: "Sin AC", True: "Con AC"}, selected=False, inline=True, width="100%"),
             ui.input_task_button(
                 "resolver_sc",
                 "Calcular",
@@ -156,7 +159,6 @@ def sc_paneles(num_sc, sistemas):
                 step=0.01,
                 update_on="blur",
             ),
-            ui.h3("Capas:"),
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
                 id=f"capas_accordion_{sc_id}",
