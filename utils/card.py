@@ -38,7 +38,7 @@ azimuth = {
     "315": "Noroeste",
 }
 
-materiales = eh.get_list_materials()
+materiales = eh.materials_list()
 
 def build_img_uri(img_file_name):
     img_path = Path(IMG_DIR + f"{img_file_name}")
@@ -68,6 +68,8 @@ def init_sistemas():
             "FDsa": 0.0,
             "TR": 0.0,
             "ET": 0.0,
+            "Eenf" : 0.0,
+            "Ecal" : 0.0
             }
     return sistemas
 
@@ -125,7 +127,13 @@ def side_card():
         ),
         ui.card(
             ui.input_switch("mostrar_Tsa", "Mostrar Tsa", False, width="100%"),
-            ui.input_radio_buttons("aire_acondicionado","", choices={False: "Sin AC", True: "Con AC"}, selected=False, inline=True, width="100%"),
+            ui.input_radio_buttons(
+                "aire_acondicionado",
+                "",
+                choices={0: "Sin AC", 1: "Con AC"},
+                inline=True,
+                width="100%"
+                ),
             ui.input_task_button(
                 "resolver_sc",
                 "Calcular",
