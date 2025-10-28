@@ -118,7 +118,7 @@ def server(input, output, session):
                 progreso.set(
                     detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1
                 )
-                if aire:
+                if aire==True:
                     solve_df, Qcool, Qheat = eh.solveCS(sc, Tsa_df, AC= True)
                     current[sc_id]["Eenf"] = Qcool
                     current[sc_id]["Ecal"] = Qheat
@@ -448,7 +448,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=columnas,
-                labels={"index": "Hora", "value": "°C", "variable": "Temperatura"},
+                labels={"index": "Hora", "value": "Temperatura [°C]", "variable": "Temperatura"},
             )
 
         # Franja horizontal
@@ -477,7 +477,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=["Ig", "Ib", "Id"],
-                labels={"index": "Hora", "value": "W/m²", "variable": "Irradiancia"},
+                labels={"index": "Hora", "value": "Irradiancia [W/m²]", "variable": "Irradiancia"},
             )
 
         else:

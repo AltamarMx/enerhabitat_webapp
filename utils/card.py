@@ -112,7 +112,7 @@ def side_card():
             ui.layout_column_wrap(
                 ui.input_action_button(
                     f"remove_capa",
-                    "🞬",
+                    "--",
                     # width="100%",
                     class_="btn-danger",
                 ),
