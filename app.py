@@ -17,7 +17,7 @@ from utils.card import (
     MAX_CAPAS,
 )
 
-eh.Nx = 10
+eh.Nx = 200
 
 app_ui = ui.page_fluid(
     ui.modal(
