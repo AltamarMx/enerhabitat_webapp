@@ -92,17 +92,18 @@ def server(input, output, session):
     @reactive.event(input.resolver_sc) # Solo se ejecuta cuando se presiona el botón resolver_sc
     def calculate_solucion():
         num_sc = input.num_sc()
+        aire = int(input.aire_acondicionado())
         with ui.Progress(min=1, max=num_sc * 2 + 2) as progreso:
             progreso.set(message="Calculando...", detail="Cargando datos", value=1)
 
             current =  sistemas.get().copy()
             datos_dia_promedio = dia_promedio_dataframe.get().copy()
             resultados_df = pd.DataFrame()
+
             for sc_id in range(1, num_sc + 1):
-                # Crear datos base para cada sistema constructivo
-                progreso.set(
-                    detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1
-                )
+                progreso.set(detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1)
+                
+                # Crear datos Tsa para cada sistema constructivo
                 Tsa_df = eh.Tsa(
                     meanDay_dataframe=datos_dia_promedio,
                     solar_absortance=float(input[f"absortancia_{sc_id}"]()),
@@ -117,10 +118,16 @@ def server(input, output, session):
                 progreso.set(
                     detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1
                 )
-                solve_df = eh.solveCS(sc, Tsa_df)
+                if aire==True:
+                    solve_df, Qcool, Qheat = eh.solveCS(sc, Tsa_df, AC= True)
+                    current[sc_id]["Eenf"] = Qcool
+                    current[sc_id]["Ecal"] = Qheat
+                else:
+                    solve_df, ET = eh.solveCS(sc, Tsa_df, energia=True)
+                    current[sc_id]["ET"] = ET
 
                 # Crear subconjunto con Is, Tsa y Ti
-                solve_df = Tsa_df[["Is", "Tsa"]].join(solve_df, how="right")
+                solve_df = Tsa_df[["Tsa"]].join(solve_df, how="right")
 
                 # Calcular métricas
                 deltaTi = solve_df.Ti.max() - solve_df.Ti.min()
@@ -130,7 +137,7 @@ def server(input, output, session):
 
                 # Agregar info de Tsa solo la primera vez
                 if sc_id == 1:
-                    resultados_df = Tsa_df[["zenith", "elevation", "azimuth", "equation_of_time", "DeltaTn", "Tn", "Ta", "Ig", "Ib", "Id"]]
+                    resultados_df = Tsa_df[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]]
 
                 # Agregar columnas con sufijo
                 solve_df = solve_df.add_suffix(f"_{sc_id}")
@@ -153,6 +160,16 @@ def server(input, output, session):
             for capa_id in range(1, capas_activas + 1)
         ]
 
+    def sistemaConstructivo_str(sc_id):
+        capas = sistemas().get(sc_id)["capas"]
+        capas_activas = sistemas().get(sc_id)["capas_activas"]
+        aux = []
+        for capa_id in range(1, capas_activas + 1):
+            material = capas[capa_id]["material"]
+            ancho = capas[capa_id]["ancho"]
+            aux.append(f"{material} : {ancho}")
+        return "\n".join(aux)
+        
     # Manejo de EPW's
     @reactive.Effect
     def epw_precargado():
@@ -266,7 +283,8 @@ def server(input, output, session):
     @render.ui
     def ui_metricas():
         if soluciones_dataframe.get().empty:
-            return ui.h4("Aún no hay métricas... Haz una simulación para empezar")
+            return "Aún no hay métricas...\nHaz una simulación para empezar"
+        
         else:
             return ui.output_data_frame("metricas_table")
     
@@ -278,40 +296,11 @@ def server(input, output, session):
             return ui.input_file("epw_file", label="", accept=[".epw"], multiple=False)
         return None
     
-    
-    """
-    ================================
-        DataFrames (Data Grids)          
-    ================================
-    """
-    
-    @render.data_frame
-    def metricas_table():
-        current =  sistemas.get().copy()
-        c_FD = []
-        c_FDsa = []
-        c_TR = []
-        c_ET = []
-        for sc_id in range(1, input.num_sc() + 1):
-            c_FD.append(current[sc_id]["FD"])
-            c_FDsa.append(current[sc_id]["FDsa"])
-            c_TR.append(current[sc_id]["TR"])
-            c_ET.append(current[sc_id]["ET"])
-            
-        metricas_df = pd.DataFrame({
-            "SC" : [i for i in range(1, input.num_sc() + 1)],
-            "FD": c_FD,
-            "FDsa": c_FDsa,
-            "TR": c_TR,
-            "ET": c_ET
-        }).round(3)
-        return render.DataTable(metricas_df)
-    
     @output
     @render.ui
     def ui_dataframes():
         if dia_promedio_dataframe.get().empty:
-            return ui.h4("Aún no hay datos para mostrar...")
+            return "Aún no hay datos para mostrar..."
         else:
             if soluciones_dataframe.get().empty:
                 return [
@@ -325,26 +314,93 @@ def server(input, output, session):
                     ui.download_button("down_res", "Descargar datos", width="100%"),
                 ]
 
+    """
+    ================================
+        DataFrames (Data Grids)          
+    ================================
+    """
+    
+    @render.data_frame
+    def metricas_table():
+        current =  sistemas.get().copy()
+        aire = int(input.aire_acondicionado())
+        
+        c_SC = []
+        c_a = []
+
+        if aire == True:
+            c_Eenf = []
+            c_Ecal = []
+            c_Etotal = []
+            for sc_id in range(1, input.num_sc() + 1):
+                Qcool = current[sc_id]["Eenf"]
+                Qheat = current[sc_id]["Ecal"]
+                
+                c_SC.append(sistemaConstructivo_str(sc_id))
+                c_a.append(current[sc_id]["absortancia"])
+                c_Eenf.append(Qcool)
+                c_Ecal.append(Qheat)
+                c_Etotal.append(Qcool + Qheat)
+
+            metricas_df = pd.DataFrame({
+                "SC" : c_SC,
+                "a\n[-]": c_a,
+                "Eenf\n[Wh/m²]": c_Eenf,
+                "Ecal\n[Wh/m²]": c_Ecal,
+                "Etotal\n[Wh/m²]": c_Etotal,
+            }).round(3)
+                
+        else:
+            c_FD = []
+            c_FDsa = []
+            c_TR = []
+            c_ET = []
+            for sc_id in range(1, input.num_sc() + 1):
+                c_SC.append(sistemaConstructivo_str(sc_id))
+                c_a.append(current[sc_id]["absortancia"])
+                c_FD.append(current[sc_id]["FD"])
+                c_FDsa.append(current[sc_id]["FDsa"])
+                c_ET.append(current[sc_id]["ET"])
+
+                Tr = current[sc_id]["TR"].components
+                dias = Tr.days
+                horas = Tr.hours + dias * 24
+                minutos = Tr.minutes
+
+                c_TR.append(f"{horas:02}:{minutos:02}")
+
+            metricas_df = pd.DataFrame({
+                "SC" : c_SC,
+                "a\n[-]": c_a,
+                "FD\n[-]": c_FD,
+                "FDsa\n[-]": c_FDsa,
+                "TR\n[HH:MM]": c_TR,
+                "ET\n[Wh/m²]": c_ET
+            }).round(3)
+            
+        return render.DataTable(metricas_df, width="100%")
+    
+   
     # DataGrid del día promedio
     @render.data_frame
     def dia_df():
         datos = dia_promedio_dataframe.get().copy()
         if not datos.empty:
-            datos = datos.round(1)
-            datos.insert(0, "Time", datos.index)
+            show_datos = datos[['Tn', 'DeltaTn', 'Ta', 'Ig', 'Ib', 'Id']].round(2)
+            show_datos.insert(0, "Time", show_datos.index)
             return render.DataGrid(
-                datos, summary="Viendo filas {start} a {end} de {total}"
+                data=show_datos, width="100%", summary="Viendo filas {start} a {end} de {total}"
             )
 
-    # DataGrid de la Ti
+    # DataGrid de la Tsa y Ti
     @render.data_frame
     def sol_df():
         datos = soluciones_dataframe.get().copy()
         if not datos.empty:
-            datos = datos.round(1)
+            datos = datos.round(2)
             datos.insert(0, "Time", datos.index)
             return render.DataGrid(
-                datos, summary="Viendo filas {start} a {end} de {total}"
+                data=datos, width="100%", summary="Viendo filas {start} a {end} de {total}"
             )
         else:
             return None
@@ -392,7 +448,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=columnas,
-                labels={"index": "Hora", "value": "°C", "variable": "Temperatura"},
+                labels={"index": "Hora", "value": "Temperatura [°C]", "variable": "Temperatura"},
             )
 
         # Franja horizontal
@@ -421,7 +477,7 @@ def server(input, output, session):
                 data_frame=display_data,
                 x=display_data.index,
                 y=["Ig", "Ib", "Id"],
-                labels={"index": "Hora", "value": "W/m²", "variable": "Irradiancia"},
+                labels={"index": "Hora", "value": "Irradiancia [W/m²]", "variable": "Irradiancia"},
             )
 
         else:
