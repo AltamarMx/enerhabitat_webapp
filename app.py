@@ -42,12 +42,12 @@ app_ui = ui.page_fluid(
             ),
         ),
         ui.nav_panel(
-            "Resultados",
-            ui.output_ui("ui_dataframes"),
-        ),
-        ui.nav_panel(
             "Métricas",
             ui.output_ui("ui_metricas"),
+        ),
+        ui.nav_panel(
+            "Resultados",
+            ui.output_ui("ui_dataframes"),
         ),
         title=ui.tags.img(
                 src=build_img_uri("icono-EnerHabitat.png"),
