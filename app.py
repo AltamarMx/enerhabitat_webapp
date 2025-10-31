@@ -1,3 +1,4 @@
+from htmltools.tags import footer
 import plotly.express as px
 import enerhabitat as eh
 import pandas as pd
@@ -18,6 +19,17 @@ from utils.card import (
     MAX_CAPAS,
 )
 
+from utils.extraer import get_git_info
+
+commit_hash, branch = get_git_info(short=True)
+build_text = f"{commit_hash} ({branch})"
+
+
+footer_tag = ui.tags.footer(
+    ui.hr(),
+    ui.tags.small(build_text),
+    class_="container-fluid py-2 text-muted"
+)
 eh.Nx = 200
 
 app_ui = ui.page_fluid(
@@ -26,7 +38,7 @@ app_ui = ui.page_fluid(
         "Comentarios a Guillermo Barrios gbv@ier.unam.mx",
         title="EnerHabitat sigue en desarrollo.",
         easy_close=True,
-        footer=None,
+        footer=footer_tag,
     ),
     ui.page_navbar(
         ui.nav_panel(
@@ -55,7 +67,8 @@ app_ui = ui.page_fluid(
                 alt="EnerHabitat",
                 style="height: 40px;"
             ),
-    )
+    ),
+    footer="Hola mundo"
 )
 
 
