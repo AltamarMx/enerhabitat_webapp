@@ -10,6 +10,7 @@ from shinywidgets import output_widget, render_widget
 
 from utils.card import (
     init_sistemas,
+    init_metricas,
     side_card,
     sc_paneles,
     build_img_uri,
@@ -66,15 +67,32 @@ def server(input, output, session):
 
     # Diccionario para datos de cada sistema constructivo
     sistemas = reactive.Value(init_sistemas())
-    # {sc_id : absortancia,
-    #          capas_activas,
-    #          capa_abierta,
-    #          capas: {capa_id: material, ancho}
-    #          FD,
-    #          FDsa,
-    #          TR,
-    #          ET}
-
+    """
+    sc_id : {
+        absortancia,
+        capas_activas,
+        capa_abierta,
+        capas: {capa_id: material, ancho}
+        FD,
+        FDsa,
+        TR,
+        ET
+    }"""
+    
+    metricas = reactive.Value(init_metricas())
+    """
+    aire: bool,
+    sc_id : {
+        capas,
+        absortancia,
+        FD,
+        FDsa,
+        TR,
+        ET,
+        Eenf,
+        Ecal
+    }"""
+    
     """
     ================================
            EnerHabitat paquete          
@@ -92,48 +110,55 @@ def server(input, output, session):
     @reactive.event(input.resolver_sc) # Solo se ejecuta cuando se presiona el botón resolver_sc
     def calculate_solucion():
         num_sc = input.num_sc()
-        aire = int(input.aire_acondicionado())
+        aire = bool(int(input.aire_acondicionado()))
         with ui.Progress(min=1, max=num_sc * 2 + 2) as progreso:
-            progreso.set(message="Calculando...", detail="Cargando datos", value=1)
-
-            current =  sistemas.get().copy()
+            progreso.set(message="Calculando...", detail="Cargando datos", value=1)    
+            
+            current_metricas = metricas.get().copy()
             datos_dia_promedio = dia_promedio_dataframe.get().copy()
             resultados_df = pd.DataFrame()
+            
+            current_metricas["aire"] = aire
 
             for sc_id in range(1, num_sc + 1):
                 progreso.set(detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1)
                 
+                c_absortancia = float(input[f"absortancia_{sc_id}"]())
+                
                 # Crear datos Tsa para cada sistema constructivo
                 Tsa_df = eh.Tsa(
                     meanDay_dataframe=datos_dia_promedio,
-                    solar_absortance=float(input[f"absortancia_{sc_id}"]()),
+                    solar_absortance=c_absortancia,
                     surface_tilt=float(input.tilt()),
                     surface_azimuth=float(input.azimuth()),
                 )
 
                 # Obtener el sistema constructivo actual
                 sc = sistemaConstructivo(sc_id)
-
+                current_metricas[sc_id]["capas"] = sistemaConstructivo_str(sc_id)
+                current_metricas[sc_id]["absortancia"] = c_absortancia
+                
                 # Resolver para este sistema constructivo
-                progreso.set(
-                    detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1
-                )
+                progreso.set(detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1)
+                
+                # Solución y métricas dependiendo de AC
                 if aire==True:
                     solve_df, Qcool, Qheat = eh.solveCS(sc, Tsa_df, AC= True)
-                    current[sc_id]["Eenf"] = Qcool
-                    current[sc_id]["Ecal"] = Qheat
+                    current_metricas[sc_id]["Eenf"] = Qcool
+                    current_metricas[sc_id]["Ecal"] = Qheat
                 else:
                     solve_df, ET = eh.solveCS(sc, Tsa_df, energia=True)
-                    current[sc_id]["ET"] = ET
+                    current_metricas[sc_id]["ET"] = ET
 
                 # Crear subconjunto con Is, Tsa y Ti
                 solve_df = Tsa_df[["Tsa"]].join(solve_df, how="right")
 
                 # Calcular métricas
                 deltaTi = solve_df.Ti.max() - solve_df.Ti.min()
-                current[sc_id]["FD"] = deltaTi/(Tsa_df.Ta.max() - Tsa_df.Ta.min())
-                current[sc_id]["FDsa"] = deltaTi/(Tsa_df.Tsa.max() - Tsa_df.Tsa.min())
-                current[sc_id]["TR"] = solve_df.Ti.idxmax() - Tsa_df.Ta.idxmax() 
+                
+                current_metricas[sc_id]["FD"] = deltaTi/(Tsa_df.Ta.max() - Tsa_df.Ta.min())
+                current_metricas[sc_id]["FDsa"] = deltaTi/(Tsa_df.Tsa.max() - Tsa_df.Tsa.min())
+                current_metricas[sc_id]["TR"] = solve_df.Ti.idxmax() - Tsa_df.Ta.idxmax() 
 
                 # Agregar info de Tsa solo la primera vez
                 if sc_id == 1:
@@ -143,8 +168,10 @@ def server(input, output, session):
                 solve_df = solve_df.add_suffix(f"_{sc_id}")
                 resultados_df = resultados_df.join(solve_df, how="right")
 
-            progreso.set(detail="Completo :D", value=progreso.value + 1)
+            # Actualizar variables reactivas
+            metricas.set(current_metricas)
             soluciones_dataframe.set(resultados_df)
+            progreso.set(detail="Completo :D", value=progreso.value + 1)
 
     """
     ================================
@@ -322,42 +349,46 @@ def server(input, output, session):
     
     @render.data_frame
     def metricas_table():
-        current =  sistemas.get().copy()
-        aire = int(input.aire_acondicionado())
+        current =  metricas.get().copy()
+        aire = current["aire"]
         
         c_SC = []
         c_a = []
-
-        if aire == True:
-            c_Eenf = []
-            c_Ecal = []
-            c_Etotal = []
+        
+        c_Eenf = []
+        c_Ecal = []
+        c_Etotal = []
+        
+        c_FD = []
+        c_FDsa = []
+        c_TR = []
+        c_ET = []
+        
+        if aire==True:
             for sc_id in range(1, input.num_sc() + 1):
+                c_SC.append(current[sc_id]["capas"])
+                c_a.append(current[sc_id]["absortancia"])
+            
                 Qcool = current[sc_id]["Eenf"]
                 Qheat = current[sc_id]["Ecal"]
-                
-                c_SC.append(sistemaConstructivo_str(sc_id))
-                c_a.append(current[sc_id]["absortancia"])
+                    
                 c_Eenf.append(Qcool)
                 c_Ecal.append(Qheat)
                 c_Etotal.append(Qcool + Qheat)
 
             metricas_df = pd.DataFrame({
-                "SC" : c_SC,
-                "a\n[-]": c_a,
-                "Eenf\n[Wh/m²]": c_Eenf,
-                "Ecal\n[Wh/m²]": c_Ecal,
-                "Etotal\n[Wh/m²]": c_Etotal,
-            }).round(3)
-                
+                    "SC" : c_SC,
+                    "a\n[-]": c_a,
+                    "Eenf\n[Wh/m²]": c_Eenf,
+                    "Ecal\n[Wh/m²]": c_Ecal,
+                    "Etotal\n[Wh/m²]": c_Etotal,
+                }).round(3)
+        
         else:
-            c_FD = []
-            c_FDsa = []
-            c_TR = []
-            c_ET = []
             for sc_id in range(1, input.num_sc() + 1):
-                c_SC.append(sistemaConstructivo_str(sc_id))
+                c_SC.append(current[sc_id]["capas"])
                 c_a.append(current[sc_id]["absortancia"])
+                
                 c_FD.append(current[sc_id]["FD"])
                 c_FDsa.append(current[sc_id]["FDsa"])
                 c_ET.append(current[sc_id]["ET"])
@@ -368,9 +399,9 @@ def server(input, output, session):
                 minutos = Tr.minutes
 
                 c_TR.append(f"{horas:02}:{minutos:02}")
-
+            
             metricas_df = pd.DataFrame({
-                "SC" : c_SC,
+                "SC\n[material : m]" : c_SC,
                 "a\n[-]": c_a,
                 "FD\n[-]": c_FD,
                 "FDsa\n[-]": c_FDsa,
@@ -380,7 +411,6 @@ def server(input, output, session):
             
         return render.DataTable(metricas_df, width="100%")
     
-   
     # DataGrid del día promedio
     @render.data_frame
     def dia_df():

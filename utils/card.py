@@ -48,31 +48,43 @@ def build_img_uri(img_file_name):
 def init_sistemas():
     """
     Inicializa un diccionario para almacenar los sistemas constructivos y sus capas.
-    Cada sistema constructivo comienza con una capa por defecto.
+    Cada sistema constructivo comienza con una capa activa por defecto.
     """
     max_capas = MAX_CAPAS
     max_sc = MAX_SC
 
-    sistemas: dict[int, dict] = {}
+    sistemas = {}
 
     for sc_id in range(1, max_sc + 1):
         sistemas[sc_id] = {
             "absortancia": 0.8,
             "capas_activas": 1,
-            "capa_abierta": "capa_1",  # Lista para rastrear el id de capas abiertas en el acordeón
+            "capa_abierta": "capa_1",  # Cadena con el id de capa abierta en el acordeón
             "capas": {
                 capa_id: {"material": materiales[1], "ancho": 0.1}
                 for capa_id in range(1, max_capas + 1)
-            },
+            }
+            }
+    return sistemas
+
+def init_metricas():
+    """
+    Inicializa un diccionario para almacenar las métricas de desempeño energético.
+    """
+    metricas = {}
+    max_sc = MAX_SC
+    metricas["aire"] = False  # Bool para saber qué vlores mostrar
+    for sc_id in range(1, max_sc + 1):
+        metricas[sc_id]={
+            "capas": "",
+            "absortancia": 0.0,
             "FD": 0.0,
             "FDsa": 0.0,
             "TR": 0.0,
             "ET": 0.0,
             "Eenf" : 0.0,
-            "Ecal" : 0.0
-            }
-    return sistemas
-
+            "Ecal" : 0.0}
+    return metricas
 
 def side_card():
     return [
