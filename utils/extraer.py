@@ -11,10 +11,9 @@ Uso:
 from __future__ import annotations
 import os
 import subprocess
-from typing import Tuple
 
 
-def _from_env() -> Tuple[str | None, str | None]:
+def _from_env():
     # Hash
     for k in ("GIT_COMMIT", "GITHUB_SHA", "VERCEL_GIT_COMMIT_SHA", "SOURCE_VERSION"):
         v = os.environ.get(k)
@@ -43,7 +42,7 @@ def _run_git(cmd: list[str]) -> str | None:
         return None
 
 
-def _from_git_cli() -> Tuple[str | None, str | None]:
+def _from_git_cli():
     commit = _run_git(["git", "rev-parse", "HEAD"])
     # `git rev-parse --abbrev-ref HEAD` devuelve 'HEAD' si está detached
     branch = _run_git(["git", "rev-parse", "--abbrev-ref", "HEAD"])
@@ -60,7 +59,7 @@ def _read_file(path: str) -> str | None:
         return None
 
 
-def _from_git_dir() -> Tuple[str | None, str | None]:
+def _from_git_dir():
     """Lee .git/HEAD y refs. Maneja refs empacadas."""
     head = _read_file(".git/HEAD")
     if not head:
@@ -97,7 +96,7 @@ def _from_git_dir() -> Tuple[str | None, str | None]:
         return commit, branch
 
 
-def get_git_info(short: bool = True) -> Tuple[str, str]:
+def get_git_info(short: bool = True):
     """
     Devuelve (commit_hash, branch). Si no se puede determinar, retorna "unknown".
     short=True => hash de 7 caracteres.

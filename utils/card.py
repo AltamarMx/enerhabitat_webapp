@@ -67,25 +67,6 @@ def init_sistemas():
             }
     return sistemas
 
-def init_metricas():
-    """
-    Inicializa un diccionario para almacenar las métricas de desempeño energético.
-    """
-    metricas = {}
-    max_sc = MAX_SC
-    metricas["aire"] = False  # Bool para saber qué vlores mostrar
-    for sc_id in range(1, max_sc + 1):
-        metricas[sc_id]={
-            "capas": "",
-            "absortancia": 0.0,
-            "FD": 0.0,
-            "FDsa": 0.0,
-            "TR": 0.0,
-            "ET": 0.0,
-            "Eenf" : 0.0,
-            "Ecal" : 0.0}
-    return metricas
-
 def side_card():
     return [
         # ui.input_dark_mode(),
@@ -141,7 +122,7 @@ def side_card():
             ui.input_switch("mostrar_Tsa", "Mostrar Tsa", False, width="100%"),
             ui.input_radio_buttons(
                 "aire_acondicionado",
-                "",
+                label="",
                 choices={0: "Sin AC", 1: "Con AC"},
                 inline=True,
                 width="100%"
@@ -177,7 +158,6 @@ def sc_paneles(num_sc, sistemas):
                 min=0,
                 max=1,
                 step=0.01,
-                update_on="blur",
             ),
             ui.accordion(
                 *capa_paneles(sc_id, capas_activas, capas),
