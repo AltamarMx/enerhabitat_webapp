@@ -155,12 +155,12 @@ def server(input, output, session):
                     cm_Eenf.append(Qcool)
                     cm_Ecal.append(Qheat)
                     cm_Etotal.append(Qcool+Qheat)
-                    cm_ET.append(pd.NA)
+                    cm_ET.append(0)
                 else:
                     solve_df, ET = eh.solveCS(sc, Tsa_df, energia=True)
-                    cm_Eenf.append(pd.NA)
-                    cm_Ecal.append(pd.NA)
-                    cm_Etotal.append(pd.NA)
+                    cm_Eenf.append(0)
+                    cm_Ecal.append(0)
+                    cm_Etotal.append(0)
                     cm_ET.append(ET)
 
                 # Crear subconjunto con Is, Tsa y Ti
