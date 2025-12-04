@@ -33,7 +33,7 @@ eh.Nx = 200
 
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla.",
+        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla. En este momento al regresar de Con AC a Sin AC o viceversa puede que las gráficas no se actualicen correctamente.",
         "Comentarios a Guillermo Barrios gbv@ier.unam.mx",
         title="EnerHabitat sigue en desarrollo.",
         easy_close=True,
