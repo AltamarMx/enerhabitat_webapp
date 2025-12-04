@@ -111,6 +111,14 @@ def server(input, output, session):
     def calculate_solucion():
         num_sc = input.num_sc()
         aire = bool(int(input.aire_acondicionado()))
+
+        # Impedir bloqueos del botón cuando falten datos o ocurra un error
+        if dia_promedio_dataframe.get().empty:
+            ui.notification_show(
+                "Selecciona un archivo EPW y mes antes de calcular.",
+                type="warning",
+            )
+            return
         
         cm_sistema = []
         cm_absortancia = []
@@ -123,83 +131,89 @@ def server(input, output, session):
         cm_Etotal = []
 
         with ui.Progress(min=1, max=num_sc * 2 + 2) as progreso:
-            progreso.set(message="Calculando...", detail="Cargando datos", value=1)    
-            
-            datos_dia_promedio = dia_promedio_dataframe.get().copy()
-            resultados_df = pd.DataFrame()
-            
-            for sc_id in range(1, num_sc + 1):
-                progreso.set(detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1)
-                
-                c_absortancia = float(input[f"absortancia_{sc_id}"]())
-                
-                # Crear datos Tsa para cada sistema constructivo
-                Tsa_df = eh.Tsa(
-                    meanDay_dataframe=datos_dia_promedio,
-                    solar_absortance=c_absortancia,
-                    surface_tilt=float(input.tilt()),
-                    surface_azimuth=float(input.azimuth()),
+            try:
+                progreso.set(message="Calculando...", detail="Cargando datos", value=1)
+
+                datos_dia_promedio = dia_promedio_dataframe.get().copy()
+                resultados_df = pd.DataFrame()
+
+                for sc_id in range(1, num_sc + 1):
+                    progreso.set(detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1)
+
+                    c_absortancia = float(input[f"absortancia_{sc_id}"]())
+
+                    # Crear datos Tsa para cada sistema constructivo
+                    Tsa_df = eh.Tsa(
+                        meanDay_dataframe=datos_dia_promedio,
+                        solar_absortance=c_absortancia,
+                        surface_tilt=float(input.tilt()),
+                        surface_azimuth=float(input.azimuth()),
+                    )
+
+                    # Obtener el sistema constructivo actual
+                    sc = sistemaConstructivo(sc_id)
+                    cm_sistema.append(sistemaConstructivo_str(sc_id))
+                    cm_absortancia.append(c_absortancia)
+
+                    # Resolver para este sistema constructivo
+                    progreso.set(detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1)
+
+                    # Solución y métricas dependiendo de AC
+                    if aire==True:
+                        solve_df, Qcool, Qheat = eh.solveCS(sc, Tsa_df, AC= True)
+                        cm_Eenf.append(Qcool)
+                        cm_Ecal.append(Qheat)
+                        cm_Etotal.append(Qcool+Qheat)
+                        cm_ET.append(0)
+                    else:
+                        solve_df, ET = eh.solveCS(sc, Tsa_df, energia=True)
+                        cm_Eenf.append(0)
+                        cm_Ecal.append(0)
+                        cm_Etotal.append(0)
+                        cm_ET.append(ET)
+
+                    # Crear subconjunto con Is, Tsa y Ti
+                    solve_df = Tsa_df[["Tsa"]].join(solve_df, how="right")
+
+                    # Calcular métricas
+                    deltaTi = solve_df.Ti.max() - solve_df.Ti.min()
+
+                    cm_FD.append(deltaTi/(Tsa_df.Ta.max() - Tsa_df.Ta.min()))
+                    cm_FDsa.append(deltaTi/(Tsa_df.Tsa.max() - Tsa_df.Tsa.min()))
+
+                    Tr_comp =(solve_df.Ti.idxmax() - Tsa_df.Ta.idxmax()).components
+                    cm_TR.append(f"{Tr_comp.hours:02}:{Tr_comp.minutes:02}")
+
+                    # Agregar info de Tsa solo la primera vez
+                    if sc_id == 1:
+                        resultados_df = Tsa_df[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]]
+
+                    # Agregar columnas con sufijo
+                    solve_df = solve_df.add_suffix(f"_{sc_id}")
+                    resultados_df = resultados_df.join(solve_df, how="right")
+
+                met = {"SC\n[material : m]" : cm_sistema,
+                        "a\n[-]": cm_absortancia,
+                        "Eenf\n[Wh/m²]": cm_Eenf,
+                        "Ecal\n[Wh/m²]": cm_Ecal,
+                        "Etotal\n[Wh/m²]": cm_Etotal,
+                        "FD\n[-]": cm_FD,
+                        "FDsa\n[-]": cm_FDsa,
+                        "TR\n[HH:MM]": cm_TR,
+                        "ET\n[Wh/m²]": cm_ET
+                        }
+                metricas_df = pd.DataFrame(met).round(3)
+
+                # Actualizar variables reactivas
+                aire_simulacion.set(aire)
+                soluciones_dataframe.set(resultados_df)
+                metricas.set(metricas_df)
+                progreso.set(detail="Completo :D", value=progreso.value + 1)
+            except Exception as e:
+                ui.notification_show(
+                    f"Error al resolver los sistemas constructivos: {e}",
+                    type="error",
                 )
-
-                # Obtener el sistema constructivo actual
-                sc = sistemaConstructivo(sc_id)
-                cm_sistema.append(sistemaConstructivo_str(sc_id))
-                cm_absortancia.append(c_absortancia)
-                
-                # Resolver para este sistema constructivo
-                progreso.set(detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1)
-                
-                # Solución y métricas dependiendo de AC
-                if aire==True:
-                    solve_df, Qcool, Qheat = eh.solveCS(sc, Tsa_df, AC= True)
-                    cm_Eenf.append(Qcool)
-                    cm_Ecal.append(Qheat)
-                    cm_Etotal.append(Qcool+Qheat)
-                    cm_ET.append(0)
-                else:
-                    solve_df, ET = eh.solveCS(sc, Tsa_df, energia=True)
-                    cm_Eenf.append(0)
-                    cm_Ecal.append(0)
-                    cm_Etotal.append(0)
-                    cm_ET.append(ET)
-
-                # Crear subconjunto con Is, Tsa y Ti
-                solve_df = Tsa_df[["Tsa"]].join(solve_df, how="right")
-
-                # Calcular métricas
-                deltaTi = solve_df.Ti.max() - solve_df.Ti.min()
-                
-                cm_FD.append(deltaTi/(Tsa_df.Ta.max() - Tsa_df.Ta.min()))
-                cm_FDsa.append(deltaTi/(Tsa_df.Tsa.max() - Tsa_df.Tsa.min()))
-                
-                Tr_comp =(solve_df.Ti.idxmax() - Tsa_df.Ta.idxmax()).components
-                cm_TR.append(f"{Tr_comp.hours:02}:{Tr_comp.minutes:02}")
-
-                # Agregar info de Tsa solo la primera vez
-                if sc_id == 1:
-                    resultados_df = Tsa_df[["Tn", "DeltaTn", "Ta", "Ig", "Ib", "Id", "Is"]]
-
-                # Agregar columnas con sufijo
-                solve_df = solve_df.add_suffix(f"_{sc_id}")
-                resultados_df = resultados_df.join(solve_df, how="right")
-            
-            met = {"SC\n[material : m]" : cm_sistema,
-                    "a\n[-]": cm_absortancia,
-                    "Eenf\n[Wh/m²]": cm_Eenf,
-                    "Ecal\n[Wh/m²]": cm_Ecal,
-                    "Etotal\n[Wh/m²]": cm_Etotal,
-                    "FD\n[-]": cm_FD,
-                    "FDsa\n[-]": cm_FDsa,
-                    "TR\n[HH:MM]": cm_TR,
-                    "ET\n[Wh/m²]": cm_ET
-                    }
-            metricas_df = pd.DataFrame(met).round(3)
-
-            # Actualizar variables reactivas
-            aire_simulacion.set(aire)
-            soluciones_dataframe.set(resultados_df)
-            metricas.set(metricas_df)
-            progreso.set(detail="Completo :D", value=progreso.value + 1)
 
     """
     ================================
