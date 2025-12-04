@@ -65,8 +65,7 @@ app_ui = ui.page_fluid(
                 alt="EnerHabitat",
                 style="height: 40px;"
             ),
-    ),
-    footer="Hola mundo"
+    )
 )
 
 
@@ -196,9 +195,9 @@ def server(input, output, session):
             metricas_df = pd.DataFrame(met).round(3)
 
             # Actualizar variables reactivas
-            aire_simulacion.set(aire)
             soluciones_dataframe.set(resultados_df)
             metricas.set(metricas_df)
+            aire_simulacion.set(aire)
             progreso.set(detail="Completo :D", value=progreso.value + 1)
 
     """
@@ -372,16 +371,25 @@ def server(input, output, session):
     @output
     @render.ui
     def ui_graficas_eh():
-        if aire_simulacion.get():
-            return [
-                    ui.card(ui.card_header("Energía"), output_widget("energia_plot")),
-                    ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot"))
-                ]
-        else:
-            return [
-                    ui.card(ui.card_header("Temperatura"), output_widget("temperatura_plot")),
-                    ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot"))
-                ]
+        # Mantener los tres widgets montados siempre para evitar pérdida de modelos.
+        # La lógica de mostrar/ocultar se maneja dentro de cada render.
+        aire = bool(aire_simulacion.get()) if aire_simulacion.get() is not None else False
+        energia_style = "" if aire else "display:none;"
+        temperatura_style = "" if not aire else "display:none;"
+
+        return [
+            ui.card(
+                ui.card_header("Temperatura"),
+                output_widget("temperatura_plot"),
+                style=temperatura_style,
+            ),
+            ui.card(
+                ui.card_header("Energía (se muestra solo con AC)"),
+                output_widget("energia_plot"),
+                style=energia_style,
+            ),
+            ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot")),
+        ]
 
     """
     ================================
@@ -436,6 +444,32 @@ def server(input, output, session):
     @render_widget
     def energia_plot():
         display_data =  metricas.get().copy()
+        aire = aire_simulacion.get()
+
+        # Mostrar un placeholder cuando no hay datos o no se pidió AC.
+        if not aire or display_data.empty:
+            fig = px.bar(
+                pd.DataFrame({"Sistema": [], "tipo": [], "value": []}),
+                x="Sistema",
+                y="value",
+                color="tipo",
+                labels={"tipo": "Energía", "value": "Wh/m²"},
+                barmode="stack",
+            )
+            fig.update_layout(
+                annotations=[
+                    dict(
+                        text="Ejecuta la simulación con Con AC para ver energía",
+                        showarrow=False,
+                        xref="paper",
+                        yref="paper",
+                        x=0.5,
+                        y=0.5,
+                        font=dict(size=14),
+                    )
+                ]
+            )
+            return fig
 
         display_data.insert(0, "Sistema", display_data.index + 1)
         display_data.rename(inplace=True, columns={"Eenf\n[Wh/m²]" : "Eenf", "Ecal\n[Wh/m²]" : "Ecal", "Etotal\n[Wh/m²]" : "Etotal"})
