@@ -19,8 +19,11 @@ from utils.card import (
 )
 
 from utils.extraer import get_git_info
+from pathlib import Path
 
 commit_hash, branch = get_git_info(short=True)
+message_md = Path(__file__).parent / "message.md"
+message_content = ui.markdown(message_md.read_text())
 build_text = f"{commit_hash} ({branch})"
 
 footer_tag = ui.tags.footer(
@@ -33,9 +36,8 @@ eh.Nx = 200
 
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla. En este momento al regresar de Con AC a Sin AC o viceversa puede que las gráficas no se actualicen correctamente.",
-        "Comentarios a Guillermo Barrios gbv@ier.unam.mx",
-        title="EnerHabitat sigue en desarrollo.",
+        message_content,
+        title="EnerHabitat V0.9.0",
         easy_close=True,
         footer=footer_tag,
     ),
