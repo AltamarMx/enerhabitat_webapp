@@ -19,8 +19,11 @@ from utils.card import (
 )
 
 from utils.extraer import get_git_info
+from pathlib import Path
 
 commit_hash, branch = get_git_info(short=True)
+message_md = Path(__file__).parent / "message.md"
+message_content = ui.markdown(message_md.read_text())
 build_text = f"{commit_hash} ({branch})"
 
 footer_tag = ui.tags.footer(
@@ -33,9 +36,8 @@ eh.config.Nx = 200
 
 app_ui = ui.page_fluid(
     ui.modal(
-        "Esta es una versión beta de la interfaz web de EnerHabitat, puede presentar fallas al usarla. En este momento al regresar de Con AC a Sin AC o viceversa puede que las gráficas no se actualicen correctamente.",
-        "Comentarios a Guillermo Barrios gbv@ier.unam.mx",
-        title="EnerHabitat sigue en desarrollo.",
+        message_content,
+        title="EnerHabitat V0.9.0",
         easy_close=True,
         footer=footer_tag,
     ),
@@ -206,9 +208,10 @@ def server(input, output, session):
             metricas_df = pd.DataFrame(met).round(3)
 
             # Actualizar variables reactivas
-            aire_simulacion.set(aire)
-            soluciones_dataframe.set(resultados_df)
+            # Set data first, then UI state to avoid race conditions
             metricas.set(metricas_df)
+            soluciones_dataframe.set(resultados_df)
+            aire_simulacion.set(aire)
             progreso.set(detail="Completo :D", value=progreso.value + 1)
 
     """
@@ -382,16 +385,14 @@ def server(input, output, session):
     @output
     @render.ui
     def ui_graficas_eh():
-        if aire_simulacion.get():
-            return [
-                    ui.card(ui.card_header("Energía"), output_widget("energia_plot")),
-                    ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot"))
-                ]
-        else:
-            return [
-                    ui.card(ui.card_header("Temperatura"), output_widget("temperatura_plot")),
-                    ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot"))
-                ]
+        # Use consistent widget outputs, let the functions decide what to render
+        aire = aire_simulacion.get()
+        plot_title = "Energía" if aire else "Temperatura"
+
+        return [
+                ui.card(ui.card_header(plot_title), output_widget("main_plot")),
+                ui.card(ui.card_header("Irradiancia"), output_widget("irr_plot"))
+            ]
 
     """
     ================================
@@ -439,79 +440,98 @@ def server(input, output, session):
 
     """
     ================================
-            Gráficas (Plotly)          
+            Gráficas (Plotly)
     ================================
     """
-    # Energia (con AC)
+    # Main plot - handles both Energia (with AC) and Temperatura (without AC)
     @render_widget
-    def energia_plot():
-        display_data =  metricas.get().copy()
-
-        display_data.insert(0, "Sistema", display_data.index + 1)
-        display_data.rename(inplace=True, columns={"Eenf\n[Wh/m²]" : "Eenf", "Ecal\n[Wh/m²]" : "Ecal", "Etotal\n[Wh/m²]" : "Etotal"})
-        display_data = display_data.melt(id_vars=["Sistema", "Etotal"], value_vars=["Eenf", "Ecal"], var_name="tipo", value_name="value")
-
-        solucion_plot = px.bar(display_data,
-                            x="Sistema",
-                            y="value",
-                            color="tipo",
-                            labels={"tipo" : "Energía", "value" : "Wh/m²"},
-                            barmode="stack",
-                            text_auto=True,
-                            hover_data={"Etotal"},
-                        )
-        
-        return solucion_plot
-    
-    # Temperaturas
-    @render_widget
-    def temperatura_plot():
+    def main_plot():
+        # Get current state
+        current_aire = aire_simulacion.get()
         sol_data = soluciones_dataframe.get()
         dia_data = dia_promedio_dataframe.get()
 
-        if dia_data.empty:
-            return None
+        if current_aire:
+            # Energia plot (Con AC)
+            display_data = metricas.get().copy()
 
-        if sol_data.empty:
-            # Gráfica de día promedio
-            display_data = dia_data.copy()[::60]  # Cada segundo
+            # Defensive check: only render if we have AC data
+            if display_data.empty:
+                return None
 
-            solucion_plot = px.scatter(
-                data_frame=display_data,
-                x=display_data.index,
-                y=["Ta"],
-                labels={"index": "Hora", "value": "°C", "variable": "Temperatura"},
-            )
+            # Check that required columns exist
+            required_cols = ["Eenf\n[Wh/m²]", "Ecal\n[Wh/m²]", "Etotal\n[Wh/m²]"]
+            if not all(col in display_data.columns for col in required_cols):
+                return None
+
+            display_data.insert(0, "Sistema", display_data.index + 1)
+            display_data.rename(inplace=True, columns={"Eenf\n[Wh/m²]" : "Eenf", "Ecal\n[Wh/m²]" : "Ecal", "Etotal\n[Wh/m²]" : "Etotal"})
+            display_data = display_data.melt(id_vars=["Sistema", "Etotal"], value_vars=["Eenf", "Ecal"], var_name="tipo", value_name="value")
+
+            solucion_plot = px.bar(display_data,
+                                x="Sistema",
+                                y="value",
+                                color="tipo",
+                                labels={"tipo" : "Energía", "value" : "Wh/m²"},
+                                barmode="stack",
+                                text_auto=True,
+                                hover_data={"Etotal"},
+                            )
+            return solucion_plot
 
         else:
-            display_data = sol_data.copy()
-            columnas = []
-            for i in display_data.columns[1:]:
-                if i.startswith("T") and i != "Tn":
-                    columnas.append(i)
+            # Temperatura plot (Sin AC)
+            if dia_data.empty:
+                return None
 
-            # Limpieza de Tsa
-            if not input.mostrar_Tsa():
-                for i in columnas:
-                    if i.startswith("Tsa"):
-                        columnas.remove(i)
+            if sol_data.empty:
+                # Gráfica de día promedio
+                display_data = dia_data.copy()[::60]  # Cada segundo
 
-            solucion_plot = px.scatter(
-                data_frame=display_data,
-                x=display_data.index,
-                y=columnas,
-                labels={"index": "Hora", "value": "Temperatura [°C]", "variable": "Temperatura"},
+                solucion_plot = px.scatter(
+                    data_frame=display_data,
+                    x=display_data.index,
+                    y=["Ta"],
+                    labels={"index": "Hora", "value": "°C", "variable": "Temperatura"},
+                )
+            else:
+                display_data = sol_data.copy()
+                columnas = []
+                for i in display_data.columns[1:]:
+                    if i.startswith("T") and i != "Tn":
+                        columnas.append(i)
+
+                # Limpieza de Tsa
+                if not input.mostrar_Tsa():
+                    for i in columnas:
+                        if i.startswith("Tsa"):
+                            columnas.remove(i)
+
+                solucion_plot = px.scatter(
+                    data_frame=display_data,
+                    x=display_data.index,
+                    y=columnas,
+                    labels={"index": "Hora", "value": "Temperatura [°C]", "variable": "Temperatura"},
+                )
+
+            # Franja horizontal
+            solucion_plot.add_hrect(
+                y0=display_data["Tn"].mean() - display_data["DeltaTn"].mean(),
+                y1=display_data["Tn"].mean() + display_data["DeltaTn"].mean(),
+                fillcolor="lime",
+                opacity=0.3,
+                line_width=0,
             )
+            return solucion_plot
 
-        # Franja horizontal
-        solucion_plot.add_hrect(
-            y0=display_data["Tn"].mean() - display_data["DeltaTn"].mean(),
-            y1=display_data["Tn"].mean() + display_data["DeltaTn"].mean(),
-            fillcolor="lime",
-            opacity=0.3,
-            line_width=0,
-        )
-        return solucion_plot
+    # Keep old function names for backwards compatibility but point to main_plot
+    @render_widget
+    def energia_plot():
+        return main_plot()
+
+    @render_widget
+    def temperatura_plot():
+        return main_plot()
 
     # Irradiancia
     @render_widget

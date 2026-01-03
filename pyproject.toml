@@ -1,6 +1,6 @@
 [project]
 name = "eh-shiny"
-version = "0.1.0"
+version = "0.9.0"
 description = "Aplicación para evaluar el desempeño térmico de un muro o techo en cualquier parte de la república con o sin sistema de A/C"
 readme = "README.md"
 requires-python = ">=3.10"
