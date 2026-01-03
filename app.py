@@ -131,7 +131,7 @@ def server(input, output, session):
         with ui.Progress(min=1, max=num_sc * 2 + 2) as progreso:
             progreso.set(message="Calculando...", detail="Cargando datos", value=1)    
             
-            current_location = locacion.get().copy()
+            current_location = locacion.get()
             resultados_df = pd.DataFrame()
             
             current_system = eh.System(location=current_location)
