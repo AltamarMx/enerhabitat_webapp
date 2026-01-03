@@ -38,7 +38,7 @@ azimuth = {
     "315": "Noroeste",
 }
 
-materiales = eh.materials_list()
+materiales = eh.config.materials_list()
 
 def build_img_uri(img_file_name):
     img_path = Path(IMG_DIR + f"{img_file_name}")

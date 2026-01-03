@@ -29,7 +29,7 @@ footer_tag = ui.tags.footer(
     class_="container-fluid py-2 text-muted"
 )
 
-eh.Nx = 200
+eh.config.Nx = 200
 
 app_ui = ui.page_fluid(
     ui.modal(
@@ -72,6 +72,7 @@ app_ui = ui.page_fluid(
 
 def server(input, output, session):
     # Definición de variables "globales" para la app
+    locacion = reactive.Value(None)
     dia_promedio_dataframe = reactive.Value(pd.DataFrame())
     soluciones_dataframe = reactive.Value(pd.DataFrame())
     current_file = reactive.Value(None)
@@ -101,8 +102,11 @@ def server(input, output, session):
     # Recalcular meanDay cuando cambie el EPW o el mes
     @reactive.Effect
     def update_meanDay():
-        if current_file.get() is not None:
-            df = eh.meanDay(epw_file=current_file.get(), month=input.mes())
+        file = current_file.get()
+        if file is not None:
+            current_location = eh.Location(epw_file=file)
+            df = current_location.meanDay(month=input.mes())
+            locacion.set(current_location)
             dia_promedio_dataframe.set(df)
 
     # Resolver sistemas constructivos
@@ -125,44 +129,50 @@ def server(input, output, session):
         with ui.Progress(min=1, max=num_sc * 2 + 2) as progreso:
             progreso.set(message="Calculando...", detail="Cargando datos", value=1)    
             
-            datos_dia_promedio = dia_promedio_dataframe.get().copy()
+            current_location = locacion.get().copy()
             resultados_df = pd.DataFrame()
             
+            current_system = eh.System(location=current_location)
+                     
             for sc_id in range(1, num_sc + 1):
                 progreso.set(detail=f"Tsa Sistema Constructivo {sc_id}", value=progreso.value + 1)
                 
+                # Current values
                 c_absortancia = float(input[f"absortancia_{sc_id}"]())
+                c_tilt = float(input.tilt())
+                c_azimuth = float(input.azimuth())
                 
-                # Crear datos Tsa para cada sistema constructivo
-                Tsa_df = eh.Tsa(
-                    meanDay_dataframe=datos_dia_promedio,
-                    solar_absortance=c_absortancia,
-                    surface_tilt=float(input.tilt()),
-                    surface_azimuth=float(input.azimuth()),
-                )
-
-                # Obtener el sistema constructivo actual
-                sc = sistemaConstructivo(sc_id)
+                # Sistema constructivo
+                c_sistema_const = sistemaConstructivo(sc_id)
+                
+                # Current metrics
                 cm_sistema.append(sistemaConstructivo_str(sc_id))
                 cm_absortancia.append(c_absortancia)
+            
+                # Actualizar current_system values
+                current_system.tilt=c_tilt
+                current_system.azimuth=c_azimuth
+                current_system.absortance=c_absortancia
+                current_system.layers=c_sistema_const
                 
                 # Resolver para este sistema constructivo
                 progreso.set(detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1)
-                
+            
                 # Solución y métricas dependiendo de AC
                 if aire==True:
-                    solve_df, Qcool, Qheat = eh.solveCS(sc, Tsa_df, AC= True)
+                    solve_df, Qcool, Qheat = current_system.solveAC()
                     cm_Eenf.append(Qcool)
                     cm_Ecal.append(Qheat)
                     cm_Etotal.append(Qcool+Qheat)
                     cm_ET.append(0)
                 else:
-                    solve_df, ET = eh.solveCS(sc, Tsa_df, energia=True)
+                    solve_df, ET = current_system.solve(energy=True)
                     cm_Eenf.append(0)
                     cm_Ecal.append(0)
                     cm_Etotal.append(0)
                     cm_ET.append(ET)
 
+                Tsa_df = current_system.Tsa()
                 # Crear subconjunto con Is, Tsa y Ti
                 solve_df = Tsa_df[["Tsa"]].join(solve_df, how="right")
 
