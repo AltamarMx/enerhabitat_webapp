@@ -146,10 +146,6 @@ def server(input, output, session):
                 
                 # Sistema constructivo
                 c_sistema_const = sistemaConstructivo(sc_id)
-                
-                # Current metrics
-                cm_sistema.append(sistemaConstructivo_str(sc_id))
-                cm_absortancia.append(c_absortancia)
             
                 # Actualizar current_system values
                 current_system.tilt=c_tilt
@@ -157,22 +153,28 @@ def server(input, output, session):
                 current_system.absortance=c_absortancia
                 current_system.layers=c_sistema_const
                 
+                # Current metrics
+                cm_sistema.append(sistemaConstructivo_str(sc_id))
+                cm_absortancia.append(c_absortancia)
+                
                 # Resolver para este sistema constructivo
                 progreso.set(detail=f"Ti Sistema Constructivo {sc_id}", value=progreso.value + 1)
             
                 # Solución y métricas dependiendo de AC
                 if aire==True:
-                    solve_df, Qcool, Qheat = current_system.solveAC()
+                    solve_df = current_system.solveAC()
+                    Qcool = current_system.cooling_energy
+                    Qheat = current_system.heating_energy
                     cm_Eenf.append(Qcool)
                     cm_Ecal.append(Qheat)
                     cm_Etotal.append(Qcool+Qheat)
-                    cm_ET.append(0)
+                    cm_ET.append(None)
                 else:
-                    solve_df, ET = current_system.solve(energy=True)
-                    cm_Eenf.append(0)
-                    cm_Ecal.append(0)
-                    cm_Etotal.append(0)
-                    cm_ET.append(ET)
+                    solve_df = current_system.solve()
+                    cm_Eenf.append(None)
+                    cm_Ecal.append(None)
+                    cm_Etotal.append(None)
+                    cm_ET.append(current_system.energy_transfer)
 
                 Tsa_df = current_system.Tsa()
                 # Crear subconjunto con Is, Tsa y Ti
