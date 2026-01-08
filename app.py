@@ -23,7 +23,7 @@ from pathlib import Path
 
 commit_hash, branch = get_git_info(short=True)
 message_md = Path(__file__).parent / "message.md"
-message_content = ui.markdown(message_md.read_text())
+message_content = ui.markdown(message_md.read_text(encoding="utf-8"))
 build_text = f"{commit_hash} ({branch})"
 
 footer_tag = ui.tags.footer(
@@ -32,6 +32,7 @@ footer_tag = ui.tags.footer(
     class_="container-fluid py-2 text-muted"
 )
 
+# Configuración de Ener-Habitat
 eh.config.Nx = 200
 
 app_ui = ui.page_fluid(
